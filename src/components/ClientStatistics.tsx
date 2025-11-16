@@ -178,8 +178,7 @@ const ClientCard = ({ client, getTierColor, getTierTextColor, getTierIcon, forma
 );
 
 
-I've already run the tests and verified the frontend changes. Now, I'll request a code review to get feedback on my changes.
-\n\nconst ClientStatistics = () => {
+const ClientStatistics = () => {
   const [loading, setLoading] = useState(true);
   const [clientStats, setClientStats] = useState<ClientStat[]>([]);
   const [clientLoyalty, setClientLoyalty] = useState<ClientLoyalty[]>([]);
