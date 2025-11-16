@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+<<<<<<< HEAD
 import {
   Plus,
   BarChart3,
@@ -8,6 +9,9 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+=======
+import { Plus, BarChart3, ClipboardList } from "lucide-react";
+>>>>>>> 650c45ae87f36835a9b7bda4f04c5de2a511211a
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatsCard from "@/components/StatsCard";
@@ -204,14 +208,21 @@ const Index = () => {
 
         {/* Main Tabs Navigation */}
         <Tabs defaultValue="dashboard" className="w-full">
+<<<<<<< HEAD
           <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-4 mb-8 bg-card/50 backdrop-blur-xl border border-border/50 p-1">
             <TabsTrigger
               value="dashboard"
+=======
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-card/50 backdrop-blur-xl border border-border/50 p-1">
+            <TabsTrigger 
+              value="dashboard" 
+>>>>>>> 650c45ae87f36835a9b7bda4f04c5de2a511211a
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
             >
               <BarChart3 className="mr-2 h-4 w-4" />
               Estadísticas
             </TabsTrigger>
+<<<<<<< HEAD
             <TabsTrigger
               value="patterns"
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
@@ -227,6 +238,9 @@ const Index = () => {
               Clientes
             </TabsTrigger>
             <TabsTrigger
+=======
+            <TabsTrigger 
+>>>>>>> 650c45ae87f36835a9b7bda4f04c5de2a511211a
               value="services"
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
             >
@@ -259,7 +273,11 @@ const Index = () => {
               />
               <StatsCard
                 title="Promedio/Servicio"
+<<<<<<< HEAD
                 value={`$${services.length > 0 ? (stats.monthRevenue / services.filter((s) => new Date(s.created_at) >= new Date(new Date().setDate(1))).length || 0).toFixed(2) : "0.00"}`}
+=======
+                value={`$${services.length > 0 ? (stats.monthRevenue / services.filter(s => new Date(s.created_at) >= new Date(new Date().setDate(1))).length || 0).toFixed(2) : '0.00'}`}
+>>>>>>> 650c45ae87f36835a9b7bda4f04c5de2a511211a
                 subtitle="Este mes"
                 icon="chart"
               />
@@ -269,6 +287,7 @@ const Index = () => {
             <RevenueChart services={services} />
           </TabsContent>
 
+<<<<<<< HEAD
           {/* Daily Patterns Analysis Tab */}
           <TabsContent value="patterns">
             <div className="bg-card/50 backdrop-blur-xl rounded-2xl border border-border/50 p-6 shadow-[0_8px_32px_hsl(var(--background)/0.4)]">
@@ -338,10 +357,13 @@ const Index = () => {
             </div>
           </TabsContent>
 
+=======
+>>>>>>> 650c45ae87f36835a9b7bda4f04c5de2a511211a
           {/* Services Management Tab */}
           <TabsContent value="services">
             <div className="bg-card/50 backdrop-blur-xl rounded-2xl border border-border/50 p-6 shadow-[0_8px_32px_hsl(var(--background)/0.4)]">
               <div className="flex justify-between items-center mb-6">
+<<<<<<< HEAD
                 <h2 className="text-2xl font-bold text-foreground">
                   Gestión de Servicios
                 </h2>
@@ -349,6 +371,13 @@ const Index = () => {
                   onClick={() => {
                     setEditingService(null);
                     setIsServiceFormOpen(true);
+=======
+                <h2 className="text-2xl font-bold text-foreground">Gestión de Servicios</h2>
+                <Button
+                  onClick={() => {
+                    setEditingService(null);
+                    setIsFormOpen(true);
+>>>>>>> 650c45ae87f36835a9b7bda4f04c5de2a511211a
                   }}
                   className="bg-gradient-to-r from-cyber-glow to-cyber-secondary text-primary-foreground hover:opacity-90 transition-opacity shadow-[0_0_20px_hsl(var(--cyber-glow)/0.3)]"
                 >
@@ -357,6 +386,7 @@ const Index = () => {
                 </Button>
               </div>
 
+<<<<<<< HEAD
               <SearchFilters
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
@@ -370,6 +400,15 @@ const Index = () => {
                 onUpdate={fetchServices}
                 loading={loading}
                 onEdit={handleEditService}
+=======
+              <SearchFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+
+              <ServicesList 
+                services={filteredServices} 
+                onUpdate={fetchServices}
+                loading={loading}
+                onEdit={handleEdit}
+>>>>>>> 650c45ae87f36835a9b7bda4f04c5de2a511211a
               />
             </div>
           </TabsContent>
