@@ -92,91 +92,6 @@ interface ClientRisk {
   recommended_action: string;
 }
 
-const PodiumClientCard = ({ client, rank, getTierColor, getTierTextColor, formatCurrency }) => (
-    <div className={`relative p-5 rounded-2xl shadow-lg border-2 ${
-        rank === 1 ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40' :
-        rank === 2 ? 'border-slate-400 bg-slate-50 dark:bg-slate-950/40' :
-        'border-yellow-700 bg-yellow-100 dark:bg-yellow-950/40'
-    } transform transition-transform duration-300 ${rank === 1 ? 'scale-105' : ''}`}>
-        <div className="absolute -top-5 left-1/2 -translate-x-1/2">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-md ${
-                rank === 1 ? 'bg-amber-500' : rank === 2 ? 'bg-slate-500' : 'bg-yellow-800'
-            }`}>
-                {rank === 1 ? <Crown /> : rank}
-            </div>
-        </div>
-        <div className="text-center mt-6">
-            <h4 className={`font-bold text-xl ${getTierTextColor(client.client_tier)}`}>
-                {client.first_name} {client.last_name || ""}
-            </h4>
-            <p className="text-sm text-muted-foreground font-medium mb-3">
-                {client.phone}
-            </p>
-            <Badge
-                className={`mb-3 bg-gradient-to-r ${getTierColor(client.client_tier)} text-white font-semibold px-3 py-1 shadow-sm`}
-            >
-                {client.client_tier}
-            </Badge>
-            <div className="text-3xl font-bold ${getTierTextColor(client.client_tier)} mb-1">
-                {client.loyalty_score} <span className="text-sm">/100</span>
-            </div>
-            <p className={`text-sm font-semibold ${getTierTextColor(client.client_tier)}`}>
-                {client.total_services} servicios • {formatCurrency(client.total_spent)}
-            </p>
-        </div>
-    </div>
-);
-
-const ClientCard = ({ client, getTierColor, getTierTextColor, getTierIcon, formatCurrency }) => (
-    <div className="p-4 rounded-xl border bg-card/60 hover:bg-card/90 transition-colors duration-200 shadow-sm hover:shadow-lg">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-gradient-to-r ${getTierColor(client.client_tier)}`}>
-                    #{client.loyalty_rank}
-                </div>
-                <div>
-                    <h4 className="font-bold text-lg text-foreground">
-                        {client.first_name} {client.last_name || ""}
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                        {client.phone}
-                    </p>
-                </div>
-            </div>
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                    <div className={`p-2 rounded-lg ${getTierTextColor(client.client_tier)}`}>
-                        {getTierIcon(client.client_tier)}
-                    </div>
-                    <Badge
-                        variant="outline"
-                        className={`font-semibold ${getTierTextColor(client.client_tier)}`}
-                    >
-                        {client.client_tier}
-                    </Badge>
-                </div>
-                <div className="w-32 text-right">
-                    <div className="flex items-center justify-end mb-1">
-                        <span className={`font-bold text-xl ${getTierTextColor(client.client_tier)}`}>{client.loyalty_score}</span>
-                        <span className="text-sm text-muted-foreground">/100</span>
-                    </div>
-                    {/* Progress Bar */}
-                    <div className="w-full bg-muted rounded-full h-1.5">
-                        <div
-                            className={`h-1.5 rounded-full bg-gradient-to-r ${getTierColor(client.client_tier)}`}
-                            style={{ width: `${client.loyalty_score}%` }}
-                        />
-                    </div>
-                </div>
-                <div className="text-right">
-                    <div className="font-semibold text-foreground">{client.total_services} servicios</div>
-                    <div className="font-bold text-lg text-primary">{formatCurrency(client.total_spent)}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
 const ClientStatistics = () => {
   const [loading, setLoading] = useState(true);
   const [clientStats, setClientStats] = useState<ClientStat[]>([]);
@@ -669,6 +584,113 @@ const ClientStatistics = () => {
   };
 
   const COLORS = ["#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#6b7280"];
+
+  const PodiumClientCard = ({ client, rank, getTierColor, getTierTextColor, formatCurrency }) => {
+    const rankStyles = {
+        1: {
+            border: 'border-amber-400',
+            bg: 'bg-amber-50 dark:bg-amber-950/40',
+            iconBg: 'bg-amber-500',
+            text: 'text-amber-900 dark:text-amber-100',
+            scale: 'scale-105'
+        },
+        2: {
+            border: 'border-slate-400',
+            bg: 'bg-slate-50 dark:bg-slate-950/40',
+            iconBg: 'bg-slate-500',
+            text: 'text-slate-900 dark:text-slate-100',
+            scale: ''
+        },
+        3: {
+            border: 'border-yellow-700',
+            bg: 'bg-yellow-100 dark:bg-yellow-950/40',
+            iconBg: 'bg-yellow-800',
+            text: 'text-yellow-900 dark:text-yellow-100',
+            scale: ''
+        }
+    };
+
+    const styles = rankStyles[rank];
+
+    return (
+        <div className={`relative p-5 rounded-2xl shadow-lg border-2 ${styles.border} ${styles.bg} transform transition-transform duration-300 ${styles.scale}`}>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-md ${styles.iconBg}`}>
+                    {rank === 1 ? <Crown /> : rank}
+                </div>
+            </div>
+            <div className="text-center mt-6">
+                <h4 className={`font-bold text-xl ${styles.text}`}>
+                    {client.first_name} {client.last_name || ""}
+                </h4>
+                <p className="text-sm text-muted-foreground font-medium mb-3">
+                    {client.phone}
+                </p>
+                <Badge
+                    className={`mb-3 bg-gradient-to-r ${getTierColor(client.client_tier)} text-white font-semibold px-3 py-1 shadow-sm`}
+                >
+                    {client.client_tier}
+                </Badge>
+                <div className={`text-3xl font-bold ${styles.text} mb-1`}>
+                    {client.loyalty_score} <span className="text-sm">/100</span>
+                </div>
+                <p className={`text-sm font-semibold ${styles.text}`}>
+                    {client.total_services} servicios • {formatCurrency(client.total_spent)}
+                </p>
+            </div>
+        </div>
+    );
+  };
+
+  const ClientCard = ({ client, getTierColor, getTierTextColor, getTierIcon, formatCurrency }) => (
+      <div className="p-4 rounded-xl border bg-card/60 hover:bg-card/90 transition-colors duration-200 shadow-sm hover:shadow-lg">
+          <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-gradient-to-r ${getTierColor(client.client_tier)}`}>
+                      #{client.loyalty_rank}
+                  </div>
+                  <div>
+                      <h4 className="font-bold text-lg text-foreground">
+                          {client.first_name} {client.last_name || ""}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                          {client.phone}
+                      </p>
+                  </div>
+              </div>
+              <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${getTierTextColor(client.client_tier)}`}>
+                          {getTierIcon(client.client_tier)}
+                      </div>
+                      <Badge
+                          variant="outline"
+                          className={`font-semibold ${getTierTextColor(client.client_tier)}`}
+                      >
+                          {client.client_tier}
+                      </Badge>
+                  </div>
+                  <div className="w-32 text-right">
+                      <div className="flex items-center justify-end mb-1">
+                          <span className={`font-bold text-xl ${getTierTextColor(client.client_tier)}`}>{client.loyalty_score}</span>
+                          <span className="text-sm text-muted-foreground">/100</span>
+                      </div>
+                      {/* Progress Bar */}
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                          <div
+                              className={`h-1.5 rounded-full bg-gradient-to-r ${getTierColor(client.client_tier)}`}
+                              style={{ width: `${client.loyalty_score}%` }}
+                          />
+                      </div>
+                  </div>
+                  <div className="text-right">
+                      <div className="font-semibold text-foreground">{client.total_services} servicios</div>
+                      <div className="font-bold text-lg text-primary">{formatCurrency(client.total_spent)}</div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
 
   if (loading) {
     return (
