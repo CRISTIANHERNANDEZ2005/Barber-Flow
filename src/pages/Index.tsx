@@ -19,8 +19,9 @@ import DailyPatternsChart from "@/components/DailyPatternsChart";
 import ClientForm from "@/components/ClientForm";
 import ClientsList from "@/components/ClientsList";
 import ClientStatistics from "@/components/ClientStatistics";
-import { useRealtimeClients } from "@/hooks/use-realtime-clients";
+import { useClients } from "@/context/ClientsContext";
 import ConnectionStatus from "@/components/connection/ConnectionStatus";
+import ConnectionTest from "@/components/connection/ConnectionTest";
 
 interface Client {
   id: string;
@@ -49,7 +50,7 @@ const Index = () => {
     refreshClients,
     connectionState,
     retryConnection,
-  } = useRealtimeClients();
+  } = useClients();
   const [isServiceFormOpen, setIsServiceFormOpen] = useState(false);
   const [isClientFormOpen, setIsClientFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,7 @@ const Index = () => {
   const [dateFilter, setDateFilter] = useState("");
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
     fetchServices();
@@ -216,7 +218,7 @@ const Index = () => {
 
         {/* Main Tabs Navigation */}
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-4 mb-8 bg-card/50 backdrop-blur-xl border border-border/50 p-1">
+          <TabsList className="grid w-full max-w-5xl mx-auto grid-cols-5 mb-8 bg-card/50 backdrop-blur-xl border border-border/50 p-1">
             <TabsTrigger
               value="dashboard"
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
@@ -244,6 +246,13 @@ const Index = () => {
             >
               <ClipboardList className="mr-2 h-4 w-4" />
               Servicios
+            </TabsTrigger>
+            <TabsTrigger
+              value="diagnostics"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
+            >
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Diagnóstico
             </TabsTrigger>
           </TabsList>
 
@@ -405,6 +414,22 @@ const Index = () => {
                 loading={loading}
                 onEdit={handleEditService}
               />
+            </div>
+          </TabsContent>
+
+          {/* Diagnostics Tab */}
+          <TabsContent value="diagnostics">
+            <div className="bg-card/50 backdrop-blur-xl rounded-2xl border border-border/50 p-6 shadow-[0_8px_32px_hsl(var(--background)/0.4)]">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Diagnóstico de Sistema
+                </h2>
+                <p className="text-muted-foreground">
+                  Herramientas para diagnosticar y resolver problemas de
+                  conectividad en tiempo real
+                </p>
+              </div>
+              <ConnectionTest />
             </div>
           </TabsContent>
         </Tabs>

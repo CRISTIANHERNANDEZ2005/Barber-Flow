@@ -21,16 +21,7 @@ import {
 } from "lucide-react";
 import PhoneInput from "./PhoneInput";
 import { usePhoneValidation } from "@/hooks/use-phone-validation";
-import { useRealtimeClients } from "@/hooks/use-realtime-clients";
-
-interface Client {
-  id: string;
-  first_name: string;
-  last_name: string | null;
-  phone: string;
-  created_at: string;
-  updated_at: string;
-}
+import { useClients, Client } from "@/context/ClientsContext";
 
 interface Service {
   id: string;
@@ -62,7 +53,13 @@ const ServiceForm = ({
     notes: "",
   });
 
-  const { clients, loading: clientsLoading } = useRealtimeClients();
+  const {
+    clients,
+    loading: clientsLoading,
+    connectionState,
+    findClientById,
+    getClientFullName,
+  } = useClients();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [showClientSuggestions, setShowClientSuggestions] = useState(false);
@@ -72,12 +69,10 @@ const ServiceForm = ({
   useEffect(() => {
     if (service && clients.length > 0) {
       // Find the client for this service
-      const client = clients.find((c) => c.id === service.client_id);
+      const client = findClientById(service.client_id);
       if (client) {
         setSelectedClient(client);
-        setClientSearchTerm(
-          `${client.first_name} ${client.last_name || ""}`.trim(),
-        );
+        setClientSearchTerm(getClientFullName(client));
       }
 
       setFormData({
@@ -189,12 +184,9 @@ const ServiceForm = ({
 
   const selectClient = (client: Client) => {
     setSelectedClient(client);
-    setClientSearchTerm(
-      `${client.first_name} ${client.last_name || ""}`.trim(),
-    );
+    setClientSearchTerm(getClientFullName(client));
     setFormData({ ...formData, client_phone: client.phone });
     setShowClientSuggestions(false);
-    setIsSearchingClients(false);
     setHighlightedIndex(-1);
   };
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -11,15 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-
-interface Client {
-  id: string;
-  first_name: string;
-  last_name: string | null;
-  phone: string;
-  created_at: string;
-  updated_at: string;
-}
+import { useClients, Client } from "@/context/ClientsContext";
 
 interface ClientFormProps {
   open: boolean;
@@ -34,6 +25,12 @@ const ClientForm = ({
   onSuccess,
   client,
 }: ClientFormProps) => {
+  const {
+    findClientByPhone,
+    addClientOptimistic,
+    updateClientOptimistic,
+    connectionState,
+  } = useClients();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
@@ -77,27 +74,15 @@ const ClientForm = ({
 
     const cleanPhone = formData.phone.replace(/\D/g, "");
 
+    // Check if phone already exists (excluding current client if editing)
+    const existingClient = findClientByPhone(cleanPhone);
+    if (existingClient && (!client || existingClient.id !== client.id)) {
+      toast.error("Este número de teléfono ya está registrado");
+      return;
+    }
+
     try {
       setLoading(true);
-
-      // Check if phone already exists (excluding current client if editing)
-      let phoneQuery = supabase
-        .from("clients")
-        .select("id")
-        .eq("phone", cleanPhone);
-
-      if (client) {
-        phoneQuery = phoneQuery.neq("id", client.id);
-      }
-
-      const { data: existingPhone, error: phoneError } = await phoneQuery;
-
-      if (phoneError) throw phoneError;
-
-      if (existingPhone && existingPhone.length > 0) {
-        toast.error("Este número de teléfono ya está registrado");
-        return;
-      }
 
       const clientData = {
         first_name: formData.first_name.trim(),
@@ -105,36 +90,42 @@ const ClientForm = ({
         phone: cleanPhone,
       };
 
+      let success = false;
+
       if (client) {
-        // Update existing client
-        const { error } = await supabase
-          .from("clients")
-          .update(clientData)
-          .eq("id", client.id);
-
-        if (error) throw error;
-        toast.success("Cliente actualizado exitosamente");
+        // Update existing client with optimistic updates
+        success = await updateClientOptimistic(client.id, clientData);
+        if (success) {
+          toast.success("Cliente actualizado exitosamente");
+        } else {
+          toast.error("Error al actualizar el cliente");
+          return;
+        }
       } else {
-        // Insert new client
-        const { error } = await supabase.from("clients").insert([clientData]);
-
-        if (error) throw error;
-        toast.success("Cliente registrado exitosamente");
+        // Add new client with optimistic updates
+        const newClient = await addClientOptimistic(clientData);
+        if (newClient) {
+          toast.success("Cliente registrado exitosamente");
+          success = true;
+        } else {
+          toast.error("Error al registrar el cliente");
+          return;
+        }
       }
 
-      setFormData({
-        first_name: "",
-        last_name: "",
-        phone: "",
-      });
+      if (success) {
+        setFormData({
+          first_name: "",
+          last_name: "",
+          phone: "",
+        });
 
-      // Call success callback first for immediate UI update
-      onSuccess();
+        // Immediate UI update
+        onSuccess();
 
-      // Small delay to ensure real-time updates propagate
-      setTimeout(() => {
+        // Close dialog
         onOpenChange(false);
-      }, 100);
+      }
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Error desconocido";
@@ -158,6 +149,12 @@ const ClientForm = ({
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-cyber-glow to-cyber-secondary bg-clip-text text-transparent">
             {client ? "Editar Cliente" : "Nuevo Cliente"}
           </DialogTitle>
+          {!connectionState.isConnected && (
+            <p className="text-sm text-yellow-600 dark:text-yellow-400">
+              ⚠️ Sin conexión - Los cambios se aplicarán cuando se restablezca
+              la conexión
+            </p>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div>
@@ -225,12 +222,17 @@ const ClientForm = ({
             <Button
               type="submit"
               className="flex-1 bg-gradient-to-r from-cyber-glow to-cyber-secondary text-primary-foreground hover:opacity-90 shadow-[0_0_20px_hsl(var(--cyber-glow)/0.3)]"
-              disabled={loading}
+              disabled={loading || connectionState.isReconnecting}
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Guardando...
+                </>
+              ) : connectionState.isReconnecting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Reconectando...
                 </>
               ) : (
                 "Guardar Cliente"
