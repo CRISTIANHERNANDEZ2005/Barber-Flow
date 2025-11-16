@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, X, Send, Loader2 } from "lucide-react";
-import { askJules } from "@/integrations/jules/client";
+import { askGoogleAI } from "@/integrations/googleai/client";
 
 interface Service {
   id: string;
@@ -44,16 +44,17 @@ const Chatbot = ({ services }: ChatbotProps) => {
     setLoading(true);
 
     try {
-      const response = await askJules({ question: input, services });
+      const response = await askGoogleAI({ question: input, services });
       const assistantMessage: Message = {
         role: "assistant",
         content: response,
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      const errorMessageText = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
       const errorMessage: Message = {
         role: "assistant",
-        content: "Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.",
+        content: `Lo siento, ha ocurrido un error: ${errorMessageText}`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
