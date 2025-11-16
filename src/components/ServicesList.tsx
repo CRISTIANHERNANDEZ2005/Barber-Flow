@@ -15,14 +15,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface Client {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  phone: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface Service {
   id: string;
-  client_name: string;
-  client_phone: string | null;
+  client_id: string;
   service_type: string;
   price: number;
   notes: string | null;
   created_at: string;
+  client?: Client;
 }
 
 interface ServicesListProps {
@@ -32,7 +41,12 @@ interface ServicesListProps {
   onEdit: (service: Service) => void;
 }
 
-const ServicesList = ({ services, onUpdate, loading, onEdit }: ServicesListProps) => {
+const ServicesList = ({
+  services,
+  onUpdate,
+  loading,
+  onEdit,
+}: ServicesListProps) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -41,14 +55,19 @@ const ServicesList = ({ services, onUpdate, loading, onEdit }: ServicesListProps
 
     try {
       setDeleting(true);
-      const { error } = await supabase.from("services").delete().eq("id", deleteId);
+      const { error } = await supabase
+        .from("services")
+        .delete()
+        .eq("id", deleteId);
 
       if (error) throw error;
 
       toast.success("Servicio eliminado");
       onUpdate();
-    } catch (error: any) {
-      toast.error("Error al eliminar: " + error.message);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      toast.error("Error al eliminar: " + errorMessage);
     } finally {
       setDeleting(false);
       setDeleteId(null);
@@ -85,9 +104,13 @@ const ServicesList = ({ services, onUpdate, loading, onEdit }: ServicesListProps
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="font-bold text-foreground text-lg group-hover:text-cyber-glow transition-colors">
-                      {service.client_name}
+                      {service.client
+                        ? `${service.client.first_name} ${service.client.last_name || ""}`.trim()
+                        : "Cliente desconocido"}
                     </h3>
-                    <p className="text-cyber-glow font-semibold">{service.service_type}</p>
+                    <p className="text-cyber-glow font-semibold">
+                      {service.service_type}
+                    </p>
                   </div>
                   <span className="text-2xl font-bold text-cyber-glow">
                     ${Number(service.price).toFixed(2)}
@@ -95,22 +118,25 @@ const ServicesList = ({ services, onUpdate, loading, onEdit }: ServicesListProps
                 </div>
 
                 <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-3">
-                  {service.client_phone && (
+                  {service.client?.phone && (
                     <div className="flex items-center gap-1">
                       <Phone className="h-3 w-3" />
-                      <span>{service.client_phone}</span>
+                      <span>{service.client.phone}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     <span>
-                      {new Date(service.created_at).toLocaleDateString("es-ES", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(service.created_at).toLocaleDateString(
+                        "es-ES",
+                        {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
                     </span>
                   </div>
                 </div>
@@ -145,13 +171,16 @@ const ServicesList = ({ services, onUpdate, loading, onEdit }: ServicesListProps
         ))}
       </div>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
         <AlertDialogContent className="bg-card/95 backdrop-blur-xl border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El registro del servicio será eliminado
-              permanentemente.
+              Esta acción no se puede deshacer. El registro del servicio será
+              eliminado permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

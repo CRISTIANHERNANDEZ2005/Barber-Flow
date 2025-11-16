@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 interface Service {
   id: string;
@@ -14,9 +14,57 @@ interface RevenueChartProps {
 }
 
 type Period = "week" | "month" | "year";
+type ChartType = "bar" | "pie";
 
 const RevenueChart = ({ services }: RevenueChartProps) => {
   const [period, setPeriod] = useState<Period>("week");
+  const [chartType, setChartType] = useState<ChartType>("bar");
+
+  const CHART_COLORS = [
+    "hsl(210, 100%, 60%)",  // Azul vibrante
+    "hsl(280, 100%, 65%)",  // Púrpura
+    "hsl(160, 100%, 50%)",  // Verde esmeralda
+    "hsl(30, 100%, 60%)",   // Naranja
+    "hsl(340, 100%, 60%)",  // Rosa
+    "hsl(190, 100%, 50%)",  // Cyan
+    "hsl(50, 100%, 55%)",   // Amarillo
+    "hsl(120, 100%, 50%)",  // Verde lima
+    "hsl(260, 100%, 65%)",  // Violeta
+    "hsl(20, 100%, 55%)",   // Coral
+    "hsl(170, 100%, 45%)",  // Turquesa
+    "hsl(310, 100%, 60%)",  // Magenta
+  ];
+
+  const renderCustomLabel = ({
+    cx,
+    cy,
+    midAngle,
+    innerRadius,
+    outerRadius,
+    percent,
+    name,
+  }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    if (percent < 0.05) return null; // No mostrar etiquetas muy pequeñas
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor={x > cx ? "start" : "end"}
+        dominantBaseline="central"
+        className="font-bold text-sm drop-shadow-lg"
+        style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
 
   const getChartData = () => {
     let days: Date[] = [];
@@ -79,6 +127,8 @@ const RevenueChart = ({ services }: RevenueChartProps) => {
   };
 
   const chartData = getChartData();
+  const pieChartData = chartData.filter(item => item.ingresos > 0); // Filtrar datos sin ingresos
+  const totalRevenue = pieChartData.reduce((sum, item) => sum + item.ingresos, 0);
 
   const getPeriodTitle = () => {
     switch (period) {
@@ -93,69 +143,164 @@ const RevenueChart = ({ services }: RevenueChartProps) => {
 
   return (
     <Card className="bg-card/50 backdrop-blur-xl border-border/50 p-6 mb-8 shadow-[0_8px_32px_hsl(var(--background)/0.4)]">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h2 className="text-2xl font-bold text-foreground">Ingresos {getPeriodTitle()}</h2>
-        <div className="flex gap-2">
-          <Button
-            variant={period === "week" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPeriod("week")}
-            className={period === "week" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
-          >
-            Semana
-          </Button>
-          <Button
-            variant={period === "month" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPeriod("month")}
-            className={period === "month" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
-          >
-            Mes
-          </Button>
-          <Button
-            variant={period === "year" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPeriod("year")}
-            className={period === "year" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
-          >
-            Año
-          </Button>
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2">
+            <Button
+              variant={chartType === "bar" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setChartType("bar")}
+              className={chartType === "bar" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+            >
+              Barras
+            </Button>
+            <Button
+              variant={chartType === "pie" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setChartType("pie")}
+              className={chartType === "pie" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+            >
+              Circular
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={period === "week" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPeriod("week")}
+              className={period === "week" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+            >
+              Semana
+            </Button>
+            <Button
+              variant={period === "month" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPeriod("month")}
+              className={period === "month" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+            >
+              Mes
+            </Button>
+            <Button
+              variant={period === "year" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPeriod("year")}
+              className={period === "year" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+            >
+              Año
+            </Button>
+          </div>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-          <XAxis 
-            dataKey="name" 
-            stroke="hsl(var(--muted-foreground))"
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
-          />
-          <YAxis 
-            stroke="hsl(var(--muted-foreground))"
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
-              borderRadius: "8px",
-              backdropFilter: "blur(12px)",
-            }}
-            labelStyle={{ color: "hsl(var(--foreground))" }}
-            itemStyle={{ color: "hsl(var(--cyber-glow))" }}
-          />
-          <Bar 
-            dataKey="ingresos" 
-            fill="url(#colorGradient)" 
-            radius={[8, 8, 0, 0]}
-          />
-          <defs>
-            <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--cyber-glow))" stopOpacity={1} />
-              <stop offset="100%" stopColor="hsl(var(--cyber-secondary))" stopOpacity={0.8} />
-            </linearGradient>
-          </defs>
-        </BarChart>
+      <ResponsiveContainer width="100%" height={400}>
+        {chartType === "bar" ? (
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+            <XAxis 
+              dataKey="name" 
+              stroke="hsl(var(--muted-foreground))"
+              tick={{ fill: "hsl(var(--muted-foreground))" }}
+            />
+            <YAxis 
+              stroke="hsl(var(--muted-foreground))"
+              tick={{ fill: "hsl(var(--muted-foreground))" }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "8px",
+                backdropFilter: "blur(12px)",
+              }}
+              labelStyle={{ color: "hsl(var(--foreground))" }}
+              itemStyle={{ color: "hsl(var(--cyber-glow))" }}
+            />
+            <Bar 
+              dataKey="ingresos" 
+              fill="url(#colorGradient)" 
+              radius={[8, 8, 0, 0]}
+            />
+            <defs>
+              <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--cyber-glow))" stopOpacity={1} />
+                <stop offset="100%" stopColor="hsl(var(--cyber-secondary))" stopOpacity={0.8} />
+              </linearGradient>
+            </defs>
+          </BarChart>
+        ) : (
+          <div className="flex flex-col items-center">
+            {pieChartData.length > 0 ? (
+              <>
+                <div className="mb-4 text-center">
+                  <p className="text-sm text-muted-foreground">Total del Período</p>
+                  <p className="text-3xl font-bold text-foreground bg-gradient-to-r from-cyber-glow to-cyber-secondary bg-clip-text text-transparent">
+                    ${totalRevenue.toFixed(2)}
+                  </p>
+                </div>
+                <PieChart width={380} height={320}>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={renderCustomLabel}
+                    outerRadius={120}
+                    innerRadius={60}
+                    fill="#8884d8"
+                    dataKey="ingresos"
+                    paddingAngle={2}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={CHART_COLORS[index % CHART_COLORS.length]}
+                        className="hover:opacity-80 transition-opacity duration-200 cursor-pointer"
+                        style={{
+                          filter: "drop-shadow(0 0 8px rgba(0,0,0,0.3))",
+                        }}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "12px",
+                      backdropFilter: "blur(12px)",
+                      padding: "12px",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                    }}
+                    itemStyle={{ 
+                      color: "hsl(var(--foreground))",
+                      fontWeight: "600",
+                    }}
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Ingresos']}
+                  />
+                  <Legend 
+                    verticalAlign="bottom"
+                    height={36}
+                    wrapperStyle={{ 
+                      color: "hsl(var(--foreground))",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                    formatter={(value, entry: any) => {
+                      const percentage = ((entry.payload.ingresos / totalRevenue) * 100).toFixed(1);
+                      return `${value} (${percentage}%)`;
+                    }}
+                  />
+                </PieChart>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <p>No hay datos para mostrar en este período</p>
+              </div>
+            )}
+          </div>
+        )}
       </ResponsiveContainer>
     </Card>
   );

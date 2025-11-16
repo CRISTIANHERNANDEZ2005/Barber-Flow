@@ -1,0 +1,292 @@
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Trash2,
+  Phone,
+  Calendar,
+  Loader2,
+  Pencil,
+  Search,
+  User,
+  Users as UsersIcon
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+interface Client {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  phone: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ClientsListProps {
+  clients: Client[];
+  onUpdate: () => void;
+  loading: boolean;
+  onEdit: (client: Client) => void;
+}
+
+const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) => {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleDelete = async (id: string) => {
+    try {
+      setDeletingId(id);
+
+      // Check if client has associated services
+      const { data: services, error: servicesError } = await supabase
+        .from("services")
+        .select("id")
+        .eq("client_id", id);
+
+      if (servicesError) throw servicesError;
+
+      if (services && services.length > 0) {
+        toast.error(`No se puede eliminar el cliente porque tiene ${services.length} servicio(s) asociado(s)`);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Cliente eliminado exitosamente");
+      onUpdate();
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      toast.error("Error al eliminar cliente: " + errorMessage);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getFullName = (client: Client) => {
+    return client.last_name
+      ? `${client.first_name} ${client.last_name}`
+      : client.first_name;
+  };
+
+  const formatPhone = (phone: string) => {
+    // Format as (XXX) XXX-XXXX
+    const cleaned = phone.replace(/\D/g, "");
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `(${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return phone;
+  };
+
+  const filteredClients = clients.filter((client) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    const fullName = getFullName(client).toLowerCase();
+    return (
+      fullName.includes(term) ||
+      client.phone.includes(term)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-cyber-glow" />
+          <span className="text-muted-foreground">Cargando clientes...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Buscar cliente por nombre o teléfono..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 bg-input border-border/50 focus:border-cyber-glow"
+        />
+      </div>
+
+      {/* Results Count */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <UsersIcon className="h-4 w-4" />
+          <span>
+            {filteredClients.length} cliente{filteredClients.length !== 1 ? "s" : ""}
+            {searchTerm && ` encontrado${filteredClients.length !== 1 ? "s" : ""}`}
+          </span>
+        </div>
+        {searchTerm && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSearchTerm("")}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Limpiar búsqueda
+          </Button>
+        )}
+      </div>
+
+      {/* Clients Grid */}
+      {filteredClients.length === 0 ? (
+        <Card className="p-8 text-center bg-card/50 backdrop-blur-xl border-border/50">
+          <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold mb-2">
+            {searchTerm ? "No se encontraron clientes" : "No hay clientes registrados"}
+          </h3>
+          <p className="text-muted-foreground">
+            {searchTerm
+              ? "Intenta con otros términos de búsqueda"
+              : "Agrega tu primer cliente para comenzar"
+            }
+          </p>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredClients.map((client) => (
+            <Card
+              key={client.id}
+              className="p-4 bg-card/50 backdrop-blur-xl border-border/50 hover:border-cyber-glow/30 transition-all duration-200"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground text-lg">
+                    {getFullName(client)}
+                  </h3>
+                  {client.last_name && (
+                    <p className="text-xs text-muted-foreground">
+                      Nombre: {client.first_name}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(client)}
+                    className="h-8 w-8 p-0 hover:bg-cyber-glow/20 hover:text-cyber-glow"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-red-500/20 hover:text-red-500"
+                        disabled={deletingId === client.id}
+                      >
+                        {deletingId === client.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-card/95 backdrop-blur-xl border-border/50">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. Se eliminará permanentemente
+                          al cliente <strong>{getFullName(client)}</strong> de tu base de datos.
+                          {"\n\n"}
+                          <strong>Nota:</strong> No podrás eliminar el cliente si tiene servicios asociados.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="border-border/50">
+                          Cancelar
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(client.id)}
+                          className="bg-red-500 hover:bg-red-600 text-white"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-3 w-3 text-muted-foreground" />
+                  <span className="font-mono">{formatPhone(client.phone)}</span>
+                  <Badge variant="outline" className="text-xs">
+                    Único
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>Registrado: {formatDate(client.created_at)}</span>
+                </div>
+
+                {client.updated_at !== client.created_at && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Pencil className="h-3 w-3" />
+                    <span>Actualizado: {formatDate(client.updated_at)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-border/30">
+                <div className="flex items-center justify-between">
+                  <Badge
+                    variant="secondary"
+                    className="bg-cyber-glow/10 text-cyber-glow border-cyber-glow/30"
+                  >
+                    Cliente Activo
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    ID: {client.id.slice(0, 8)}...
+                  </span>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ClientsList;
