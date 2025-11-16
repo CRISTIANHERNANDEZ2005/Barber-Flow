@@ -21,7 +21,6 @@ import ClientsList from "@/components/ClientsList";
 import ClientStatistics from "@/components/ClientStatistics";
 import { useClients } from "@/context/ClientsContext";
 import ConnectionStatus from "@/components/connection/ConnectionStatus";
-import Chatbot from "@/components/Chatbot";
 
 interface Client {
   id: string;
@@ -429,8 +428,6 @@ const Index = () => {
         }}
         client={editingClient}
       />
-
-      <Chatbot services={services} />
     </div>
   );
 };
