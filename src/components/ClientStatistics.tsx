@@ -479,17 +479,51 @@ const ClientStatistics = () => {
   const getTierColor = (tier: string) => {
     switch (tier) {
       case "VIP":
-        return "from-purple-500 to-pink-500";
+        return "from-purple-600 to-pink-600";
       case "Fiel":
-        return "from-blue-500 to-cyan-500";
+        return "from-blue-600 to-cyan-600";
       case "Regular":
-        return "from-green-500 to-emerald-500";
+        return "from-green-600 to-emerald-600";
       case "Ocasional":
-        return "from-yellow-500 to-orange-500";
+        return "from-amber-600 to-orange-600";
       case "Inactivo":
-        return "from-gray-400 to-gray-500";
+        return "from-slate-500 to-gray-600";
       default:
-        return "from-gray-300 to-gray-400";
+        return "from-gray-500 to-slate-600";
+    }
+  };
+
+  const getTierBgColor = (tier: string) => {
+    switch (tier) {
+      case "VIP":
+        return "bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border-purple-200 dark:border-purple-800";
+      case "Fiel":
+        return "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800";
+      case "Regular":
+        return "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-200 dark:border-green-800";
+      case "Ocasional":
+        return "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200 dark:border-amber-800";
+      case "Inactivo":
+        return "bg-gradient-to-r from-slate-100 to-gray-100 dark:from-slate-900/50 dark:to-gray-900/50 border-slate-300 dark:border-slate-700";
+      default:
+        return "bg-gradient-to-r from-gray-100 to-slate-100 dark:from-gray-900/50 dark:to-slate-900/50 border-gray-300 dark:border-gray-700";
+    }
+  };
+
+  const getTierTextColor = (tier: string) => {
+    switch (tier) {
+      case "VIP":
+        return "text-purple-900 dark:text-purple-100";
+      case "Fiel":
+        return "text-blue-900 dark:text-blue-100";
+      case "Regular":
+        return "text-green-900 dark:text-green-100";
+      case "Ocasional":
+        return "text-amber-900 dark:text-amber-100";
+      case "Inactivo":
+        return "text-slate-700 dark:text-slate-300";
+      default:
+        return "text-gray-700 dark:text-gray-300";
     }
   };
 
@@ -511,15 +545,30 @@ const ClientStatistics = () => {
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case "Alto Riesgo":
-        return "border-red-500 bg-red-50 dark:bg-red-950/20";
+        return "border-red-500 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/40 dark:to-red-900/40";
       case "Riesgo Medio":
-        return "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20";
+        return "border-yellow-500 bg-gradient-to-r from-yellow-50 to-amber-100 dark:from-yellow-950/40 dark:to-amber-900/40";
       case "Riesgo Bajo":
-        return "border-orange-500 bg-orange-50 dark:bg-orange-950/20";
+        return "border-orange-500 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950/40 dark:to-orange-900/40";
       case "Activo":
-        return "border-green-500 bg-green-50 dark:bg-green-950/20";
+        return "border-green-500 bg-gradient-to-r from-green-50 to-emerald-100 dark:from-green-950/40 dark:to-emerald-900/40";
       default:
-        return "border-gray-300 bg-gray-50 dark:bg-gray-950/20";
+        return "border-gray-300 bg-gradient-to-r from-gray-50 to-slate-100 dark:from-gray-950/40 dark:to-slate-900/40";
+    }
+  };
+
+  const getRiskBadgeColor = (risk: string) => {
+    switch (risk) {
+      case "Alto Riesgo":
+        return "border-red-600 text-red-800 bg-red-100 dark:border-red-400 dark:text-red-200 dark:bg-red-900/30";
+      case "Riesgo Medio":
+        return "border-yellow-600 text-yellow-800 bg-yellow-100 dark:border-yellow-400 dark:text-yellow-200 dark:bg-yellow-900/30";
+      case "Riesgo Bajo":
+        return "border-orange-600 text-orange-800 bg-orange-100 dark:border-orange-400 dark:text-orange-200 dark:bg-orange-900/30";
+      case "Activo":
+        return "border-green-600 text-green-800 bg-green-100 dark:border-green-400 dark:text-green-200 dark:bg-green-900/30";
+      default:
+        return "border-gray-600 text-gray-800 bg-gray-100 dark:border-gray-400 dark:text-gray-200 dark:bg-gray-900/30";
     }
   };
 
@@ -657,44 +706,58 @@ const ClientStatistics = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {filteredClients.slice(0, 20).map((client, index) => (
                 <div
                   key={client.id}
-                  className={`p-4 rounded-lg border bg-gradient-to-r ${getTierColor(client.client_tier)}/10 border-current/20`}
+                  className={`p-5 rounded-xl border-2 ${getTierBgColor(client.client_tier)} shadow-sm hover:shadow-md transition-all duration-200`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className="w-8 h-8 rounded-full flex items-center justify-center"
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-12 h-12 rounded-full bg-gradient-to-r ${getTierColor(client.client_tier)} flex items-center justify-center text-white font-bold shadow-lg`}
                         >
                           #{client.loyalty_rank}
-                        </Badge>
-                        {getTierIcon(client.client_tier)}
+                        </div>
+                        <div
+                          className={`p-2 rounded-lg bg-white/60 dark:bg-black/20 ${getTierTextColor(client.client_tier)}`}
+                        >
+                          {getTierIcon(client.client_tier)}
+                        </div>
                       </div>
                       <div>
-                        <h4 className="font-semibold">
+                        <h4
+                          className={`font-bold text-lg ${getTierTextColor(client.client_tier)}`}
+                        >
                           {client.first_name} {client.last_name || ""}
                         </h4>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground font-medium">
                           📞 {client.phone}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-3 mb-2">
                         <Badge
-                          className={`bg-gradient-to-r ${getTierColor(client.client_tier)} text-white`}
+                          className={`bg-gradient-to-r ${getTierColor(client.client_tier)} text-white font-semibold px-3 py-1 shadow-sm`}
                         >
                           {client.client_tier}
                         </Badge>
-                        <span className="font-bold text-lg">
-                          {client.loyalty_score}/100
-                        </span>
+                        <div className="text-right">
+                          <div
+                            className={`font-bold text-2xl ${getTierTextColor(client.client_tier)}`}
+                          >
+                            {client.loyalty_score}
+                          </div>
+                          <div className="text-sm text-muted-foreground font-medium">
+                            /100
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div
+                        className={`text-sm font-semibold ${getTierTextColor(client.client_tier)}`}
+                      >
                         {client.total_services} servicios •{" "}
                         {formatCurrency(client.total_spent)}
                       </div>
@@ -718,28 +781,29 @@ const ClientStatistics = () => {
                 {chartData.topClients.map((client, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-white/80 to-gray-50/80 dark:from-gray-800/50 dark:to-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200"
                   >
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-full bg-gradient-to-r ${getTierColor(client.tier)} flex items-center justify-center text-white font-bold text-sm shadow-md`}
                       >
                         {index + 1}
-                      </Badge>
+                      </div>
                       <div>
-                        <p className="font-medium">{client.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">
+                          {client.name}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                           {client.services} servicios
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-green-600">
+                      <p className="font-bold text-xl text-green-700 dark:text-green-400 mb-1">
                         {formatCurrency(client.spending)}
                       </p>
                       <Badge
-                        className={`bg-gradient-to-r ${getTierColor(client.tier)} text-white text-xs`}
+                        className={`bg-gradient-to-r ${getTierColor(client.tier)} text-white text-xs font-semibold px-2 py-1 shadow-sm`}
                       >
                         {client.tier}
                       </Badge>
@@ -750,45 +814,66 @@ const ClientStatistics = () => {
             </Card>
 
             <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
                 <Activity className="h-5 w-5 text-blue-500" />
                 Actividad por Períodos
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {clientPeriods
                   .filter((c) => c.services_this_month > 0)
                   .slice(0, 10)
                   .map((client) => (
-                    <div key={client.client_id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">
+                    <div
+                      key={client.client_id}
+                      className="p-4 bg-gradient-to-r from-white to-gray-50/50 dark:from-gray-800/50 dark:to-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold text-gray-900 dark:text-gray-100 text-lg">
                           {client.first_name} {client.last_name || ""}
                         </h4>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                          Total: {formatCurrency(client.spent_this_month)}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        <div className="text-center p-2 bg-blue-50 dark:bg-blue-950/20 rounded">
-                          <p className="font-semibold text-blue-600">
-                            {client.services_this_week}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Esta semana
-                          </p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="text-center p-3 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 rounded-lg border border-blue-200 dark:border-blue-700">
+                          <div className="flex flex-col items-center gap-1">
+                            <p className="font-bold text-2xl text-blue-700 dark:text-blue-300">
+                              {client.services_this_week}
+                            </p>
+                            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                              Esta semana
+                            </p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400">
+                              {formatCurrency(client.spent_this_week)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-center p-2 bg-green-50 dark:bg-green-950/20 rounded">
-                          <p className="font-semibold text-green-600">
-                            {client.services_this_month}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Este mes
-                          </p>
+                        <div className="text-center p-3 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/40 dark:to-green-800/40 rounded-lg border border-green-200 dark:border-green-700">
+                          <div className="flex flex-col items-center gap-1">
+                            <p className="font-bold text-2xl text-green-700 dark:text-green-300">
+                              {client.services_this_month}
+                            </p>
+                            <p className="text-xs font-semibold text-green-600 dark:text-green-400">
+                              Este mes
+                            </p>
+                            <p className="text-xs text-green-600 dark:text-green-400">
+                              {formatCurrency(client.spent_this_month)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-center p-2 bg-purple-50 dark:bg-purple-950/20 rounded">
-                          <p className="font-semibold text-purple-600">
-                            {client.services_this_year}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Este año
-                          </p>
+                        <div className="text-center p-3 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/40 dark:to-purple-800/40 rounded-lg border border-purple-200 dark:border-purple-700">
+                          <div className="flex flex-col items-center gap-1">
+                            <p className="font-bold text-2xl text-purple-700 dark:text-purple-300">
+                              {client.services_this_year}
+                            </p>
+                            <p className="text-xs font-semibold text-purple-600 dark:text-purple-400">
+                              Este año
+                            </p>
+                            <p className="text-xs text-purple-600 dark:text-purple-400">
+                              {formatCurrency(client.spent_this_year)}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -805,48 +890,87 @@ const ClientStatistics = () => {
               <AlertTriangle className="h-5 w-5 text-red-500" />
               Análisis de Riesgo de Clientes
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {clientRisks
                 .filter((c) => c.risk_level !== "Activo")
                 .map((client) => (
                   <div
                     key={client.client_id}
-                    className={`p-4 rounded-lg border ${getRiskColor(client.risk_level)}`}
+                    className={`p-5 rounded-xl border-2 ${getRiskColor(client.risk_level)} shadow-sm hover:shadow-md transition-all duration-200`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold">{client.client_name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          📞 {client.phone}
-                        </p>
-                        <p className="text-sm mt-1">
-                          <strong>Último servicio:</strong> Hace{" "}
-                          {client.days_since_last_service} días
-                        </p>
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <AlertTriangle
+                            className={`h-5 w-5 ${
+                              client.risk_level === "Alto Riesgo"
+                                ? "text-red-600 dark:text-red-400"
+                                : client.risk_level === "Riesgo Medio"
+                                  ? "text-yellow-600 dark:text-yellow-400"
+                                  : "text-orange-600 dark:text-orange-400"
+                            }`}
+                          />
+                          <h4 className="font-bold text-lg text-gray-900 dark:text-gray-100">
+                            {client.client_name}
+                          </h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                              📞
+                            </span>
+                            <span className="text-gray-900 dark:text-gray-100 font-medium">
+                              {client.phone}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                              🕒
+                            </span>
+                            <span className="text-gray-900 dark:text-gray-100 font-medium">
+                              Hace {client.days_since_last_service} días
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                              📊
+                            </span>
+                            <span className="text-gray-900 dark:text-gray-100 font-medium">
+                              {client.total_services} servicios totales
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                              ⏱️
+                            </span>
+                            <span className="text-gray-900 dark:text-gray-100 font-medium">
+                              Promedio: {client.avg_days_between_services} días
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
+                      <div className="ml-4">
                         <Badge
-                          variant="outline"
-                          className={`mb-2 ${
-                            client.risk_level === "Alto Riesgo"
-                              ? "border-red-500 text-red-600"
-                              : client.risk_level === "Riesgo Medio"
-                                ? "border-yellow-500 text-yellow-600"
-                                : "border-orange-500 text-orange-600"
-                          }`}
+                          className={`${getRiskBadgeColor(client.risk_level)} font-semibold px-3 py-1 text-sm`}
                         >
                           {client.risk_level}
                         </Badge>
-                        <p className="text-sm text-muted-foreground">
-                          {client.total_services} servicios totales
-                        </p>
                       </div>
                     </div>
-                    <div className="mt-3 p-2 bg-white/50 dark:bg-black/20 rounded">
-                      <p className="text-sm">
-                        <strong>Acción recomendada:</strong>{" "}
-                        {client.recommended_action}
-                      </p>
+                    <div className="mt-4 p-4 bg-white/70 dark:bg-black/30 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+                      <div className="flex items-start gap-2">
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                          💡
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+                            Acción recomendada:
+                          </p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {client.recommended_action}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
