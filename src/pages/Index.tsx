@@ -20,6 +20,7 @@ import ClientForm from "@/components/ClientForm";
 import ClientsList from "@/components/ClientsList";
 import ClientStatistics from "@/components/ClientStatistics";
 import { useRealtimeClients } from "@/hooks/use-realtime-clients";
+import ConnectionStatus from "@/components/connection/ConnectionStatus";
 
 interface Client {
   id: string;
@@ -46,6 +47,8 @@ const Index = () => {
     clients,
     loading: clientsLoading,
     refreshClients,
+    connectionState,
+    retryConnection,
   } = useRealtimeClients();
   const [isServiceFormOpen, setIsServiceFormOpen] = useState(false);
   const [isClientFormOpen, setIsClientFormOpen] = useState(false);
@@ -200,6 +203,15 @@ const Index = () => {
           <p className="text-muted-foreground text-lg">
             Sistema de Gestión Profesional
           </p>
+
+          {/* Connection Status */}
+          <div className="mt-4 flex justify-center">
+            <ConnectionStatus
+              connectionState={connectionState}
+              onRetry={retryConnection}
+              compact={true}
+            />
+          </div>
         </header>
 
         {/* Main Tabs Navigation */}
@@ -288,15 +300,26 @@ const Index = () => {
           <TabsContent value="clients">
             <div className="bg-card/50 backdrop-blur-xl rounded-2xl border border-border/50 p-6 shadow-[0_8px_32px_hsl(var(--background)/0.4)]">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-foreground">
-                  Gestión de Clientes
-                </h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-bold text-foreground">
+                    Gestión de Clientes
+                  </h2>
+                  <ConnectionStatus
+                    connectionState={connectionState}
+                    onRetry={retryConnection}
+                    compact={true}
+                  />
+                </div>
                 <Button
                   onClick={() => {
                     setEditingClient(null);
                     setIsClientFormOpen(true);
                   }}
                   className="bg-gradient-to-r from-cyber-glow to-cyber-secondary text-primary-foreground hover:opacity-90 transition-opacity shadow-[0_0_20px_hsl(var(--cyber-glow)/0.3)]"
+                  disabled={
+                    !connectionState.isConnected &&
+                    connectionState.isReconnecting
+                  }
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Nuevo Cliente
@@ -342,15 +365,26 @@ const Index = () => {
           <TabsContent value="services">
             <div className="bg-card/50 backdrop-blur-xl rounded-2xl border border-border/50 p-6 shadow-[0_8px_32px_hsl(var(--background)/0.4)]">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-foreground">
-                  Gestión de Servicios
-                </h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-bold text-foreground">
+                    Gestión de Servicios
+                  </h2>
+                  <ConnectionStatus
+                    connectionState={connectionState}
+                    onRetry={retryConnection}
+                    compact={true}
+                  />
+                </div>
                 <Button
                   onClick={() => {
                     setEditingService(null);
                     setIsServiceFormOpen(true);
                   }}
                   className="bg-gradient-to-r from-cyber-glow to-cyber-secondary text-primary-foreground hover:opacity-90 transition-opacity shadow-[0_0_20px_hsl(var(--cyber-glow)/0.3)]"
+                  disabled={
+                    !connectionState.isConnected &&
+                    connectionState.isReconnecting
+                  }
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Nuevo Servicio
