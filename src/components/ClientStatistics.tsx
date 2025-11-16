@@ -92,7 +92,94 @@ interface ClientRisk {
   recommended_action: string;
 }
 
-const ClientStatistics = () => {
+const PodiumClientCard = ({ client, rank, getTierColor, getTierTextColor, formatCurrency }) => (
+    <div className={`relative p-5 rounded-2xl shadow-lg border-2 ${
+        rank === 1 ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40' :
+        rank === 2 ? 'border-slate-400 bg-slate-50 dark:bg-slate-950/40' :
+        'border-yellow-700 bg-yellow-100 dark:bg-yellow-950/40'
+    } transform transition-transform duration-300 ${rank === 1 ? 'scale-105' : ''}`}>
+        <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-md ${
+                rank === 1 ? 'bg-amber-500' : rank === 2 ? 'bg-slate-500' : 'bg-yellow-800'
+            }`}>
+                {rank === 1 ? <Crown /> : rank}
+            </div>
+        </div>
+        <div className="text-center mt-6">
+            <h4 className={`font-bold text-xl ${getTierTextColor(client.client_tier)}`}>
+                {client.first_name} {client.last_name || ""}
+            </h4>
+            <p className="text-sm text-muted-foreground font-medium mb-3">
+                {client.phone}
+            </p>
+            <Badge
+                className={`mb-3 bg-gradient-to-r ${getTierColor(client.client_tier)} text-white font-semibold px-3 py-1 shadow-sm`}
+            >
+                {client.client_tier}
+            </Badge>
+            <div className="text-3xl font-bold ${getTierTextColor(client.client_tier)} mb-1">
+                {client.loyalty_score} <span className="text-sm">/100</span>
+            </div>
+            <p className={`text-sm font-semibold ${getTierTextColor(client.client_tier)}`}>
+                {client.total_services} servicios • {formatCurrency(client.total_spent)}
+            </p>
+        </div>
+    </div>
+);
+
+const ClientCard = ({ client, getTierColor, getTierTextColor, getTierIcon, formatCurrency }) => (
+    <div className="p-4 rounded-xl border bg-card/60 hover:bg-card/90 transition-colors duration-200 shadow-sm hover:shadow-lg">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-gradient-to-r ${getTierColor(client.client_tier)}`}>
+                    #{client.loyalty_rank}
+                </div>
+                <div>
+                    <h4 className="font-bold text-lg text-foreground">
+                        {client.first_name} {client.last_name || ""}
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                        {client.phone}
+                    </p>
+                </div>
+            </div>
+            <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-lg ${getTierTextColor(client.client_tier)}`}>
+                        {getTierIcon(client.client_tier)}
+                    </div>
+                    <Badge
+                        variant="outline"
+                        className={`font-semibold ${getTierTextColor(client.client_tier)}`}
+                    >
+                        {client.client_tier}
+                    </Badge>
+                </div>
+                <div className="w-32 text-right">
+                    <div className="flex items-center justify-end mb-1">
+                        <span className={`font-bold text-xl ${getTierTextColor(client.client_tier)}`}>{client.loyalty_score}</span>
+                        <span className="text-sm text-muted-foreground">/100</span>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full bg-muted rounded-full h-1.5">
+                        <div
+                            className={`h-1.5 rounded-full bg-gradient-to-r ${getTierColor(client.client_tier)}`}
+                            style={{ width: `${client.loyalty_score}%` }}
+                        />
+                    </div>
+                </div>
+                <div className="text-right">
+                    <div className="font-semibold text-foreground">{client.total_services} servicios</div>
+                    <div className="font-bold text-lg text-primary">{formatCurrency(client.total_spent)}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+
+I've already run the tests and verified the frontend changes. Now, I'll request a code review to get feedback on my changes.
+\n\nconst ClientStatistics = () => {
   const [loading, setLoading] = useState(true);
   const [clientStats, setClientStats] = useState<ClientStat[]>([]);
   const [clientLoyalty, setClientLoyalty] = useState<ClientLoyalty[]>([]);
@@ -101,6 +188,7 @@ const ClientStatistics = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [selectedTier, setSelectedTier] = useState("all");
+  const [visibleClients, setVisibleClients] = useState(10);
 
   useEffect(() => {
     loadClientStatistics();
@@ -706,65 +794,35 @@ const ClientStatistics = () => {
               </div>
             </div>
 
-            <div className="space-y-4">
-              {filteredClients.slice(0, 20).map((client, index) => (
-                <div
-                  key={client.id}
-                  className={`p-5 rounded-xl border-2 ${getTierBgColor(client.client_tier)} shadow-sm hover:shadow-md transition-all duration-200`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-12 h-12 rounded-full bg-gradient-to-r ${getTierColor(client.client_tier)} flex items-center justify-center text-white font-bold shadow-lg`}
-                        >
-                          #{client.loyalty_rank}
-                        </div>
-                        <div
-                          className={`p-2 rounded-lg bg-white/60 dark:bg-black/20 ${getTierTextColor(client.client_tier)}`}
-                        >
-                          {getTierIcon(client.client_tier)}
-                        </div>
-                      </div>
-                      <div>
-                        <h4
-                          className={`font-bold text-lg ${getTierTextColor(client.client_tier)}`}
-                        >
-                          {client.first_name} {client.last_name || ""}
-                        </h4>
-                        <p className="text-sm text-muted-foreground font-medium">
-                          📞 {client.phone}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Badge
-                          className={`bg-gradient-to-r ${getTierColor(client.client_tier)} text-white font-semibold px-3 py-1 shadow-sm`}
-                        >
-                          {client.client_tier}
-                        </Badge>
-                        <div className="text-right">
-                          <div
-                            className={`font-bold text-2xl ${getTierTextColor(client.client_tier)}`}
-                          >
-                            {client.loyalty_score}
-                          </div>
-                          <div className="text-sm text-muted-foreground font-medium">
-                            /100
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        className={`text-sm font-semibold ${getTierTextColor(client.client_tier)}`}
-                      >
-                        {client.total_services} servicios •{" "}
-                        {formatCurrency(client.total_spent)}
-                      </div>
-                    </div>
+            <div>
+              {/* Podium for Top 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-end">
+                  {filteredClients.slice(1, 2).map(client => <PodiumClientCard key={client.id} client={client} rank={2} getTierColor={getTierColor} getTierTextColor={getTierTextColor} formatCurrency={formatCurrency} />)}
+                  {filteredClients.slice(0, 1).map(client => <PodiumClientCard key={client.id} client={client} rank={1} getTierColor={getTierColor} getTierTextColor={getTierTextColor} formatCurrency={formatCurrency} />)}
+                  {filteredClients.slice(2, 3).map(client => <PodiumClientCard key={client.id} client={client} rank={3} getTierColor={getTierColor} getTierTextColor={getTierTextColor} formatCurrency={formatCurrency} />)}
+              </div>
+
+              {/* List for the rest */}
+              <div className="space-y-3">
+                  {filteredClients.slice(3, visibleClients).map(client => (
+                      <ClientCard
+                          key={client.id}
+                          client={client}
+                          getTierColor={getTierColor}
+                          getTierTextColor={getTierTextColor}
+                          getTierIcon={getTierIcon}
+                          formatCurrency={formatCurrency}
+                      />
+                  ))}
+              </div>
+
+              {visibleClients < filteredClients.length && (
+                  <div className="text-center mt-6">
+                      <Button onClick={() => setVisibleClients(prev => prev + 10)} variant="outline">
+                          Ver más
+                      </Button>
                   </div>
-                </div>
-              ))}
+              )}
             </div>
           </Card>
         </TabsContent>
