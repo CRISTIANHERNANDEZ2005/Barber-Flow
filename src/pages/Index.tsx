@@ -216,36 +216,38 @@ const Index = () => {
 
         {/* Main Tabs Navigation */}
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-4 mb-8 bg-card/50 backdrop-blur-xl border border-border/50 p-1">
-            <TabsTrigger
-              value="dashboard"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
-            >
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Estadísticas
-            </TabsTrigger>
-            <TabsTrigger
-              value="patterns"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
-            >
-              <TrendingUp className="mr-2 h-4 w-4" />
-              Patrones
-            </TabsTrigger>
-            <TabsTrigger
-              value="clients"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Clientes
-            </TabsTrigger>
-            <TabsTrigger
-              value="services"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground"
-            >
-              <ClipboardList className="mr-2 h-4 w-4" />
-              Servicios
-            </TabsTrigger>
-          </TabsList>
+          <div className="mb-8 overflow-x-auto scrollbar-hide">
+            <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:max-w-4xl md:mx-auto md:grid-cols-4 bg-card/50 backdrop-blur-xl border border-border/50 p-1.5 gap-1">
+              <TabsTrigger
+                value="dashboard"
+                className="flex-shrink-0 min-w-[140px] md:min-w-0 px-6 py-3 md:px-4 md:py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground transition-all duration-200 hover:scale-105"
+              >
+                <BarChart3 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+                <span className="font-medium">Estadísticas</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="patterns"
+                className="flex-shrink-0 min-w-[140px] md:min-w-0 px-6 py-3 md:px-4 md:py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground transition-all duration-200 hover:scale-105"
+              >
+                <TrendingUp className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+                <span className="font-medium">Patrones</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="clients"
+                className="flex-shrink-0 min-w-[140px] md:min-w-0 px-6 py-3 md:px-4 md:py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground transition-all duration-200 hover:scale-105"
+              >
+                <Users className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+                <span className="font-medium">Clientes</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="services"
+                className="flex-shrink-0 min-w-[140px] md:min-w-0 px-6 py-3 md:px-4 md:py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyber-glow data-[state=active]:to-cyber-secondary data-[state=active]:text-primary-foreground transition-all duration-200 hover:scale-105"
+              >
+                <ClipboardList className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+                <span className="font-medium">Servicios</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Dashboard/Statistics Tab */}
           <TabsContent value="dashboard" className="space-y-8">
@@ -300,16 +302,9 @@ const Index = () => {
           <TabsContent value="clients">
             <div className="bg-card/50 backdrop-blur-xl rounded-2xl border border-border/50 p-6 shadow-[0_8px_32px_hsl(var(--background)/0.4)]">
               <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    Gestión de Clientes
-                  </h2>
-                  <ConnectionStatus
-                    connectionState={connectionState}
-                    onRetry={retryConnection}
-                    compact={true}
-                  />
-                </div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Gestión de Clientes
+                </h2>
                 <Button
                   onClick={() => {
                     setEditingClient(null);
@@ -369,11 +364,6 @@ const Index = () => {
                   <h2 className="text-2xl font-bold text-foreground">
                     Gestión de Servicios
                   </h2>
-                  <ConnectionStatus
-                    connectionState={connectionState}
-                    onRetry={retryConnection}
-                    compact={true}
-                  />
                 </div>
                 <Button
                   onClick={() => {

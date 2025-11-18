@@ -378,3 +378,17 @@ COMMENT ON VIEW public.client_loyalty_ranking IS 'Client loyalty analysis with s
 COMMENT ON VIEW public.client_service_periods IS 'Client activity broken down by time periods (weekly, monthly, yearly)';
 COMMENT ON VIEW public.client_service_preferences IS 'Client preferences by service type with ranking';
 COMMENT ON FUNCTION get_client_risk_analysis() IS 'Identifies clients at risk of churning with recommended actions';
+
+INSERT INTO public.clients (id, first_name, last_name, phone, created_at)
+VALUES
+('3fa85f64-5717-4562-b3fc-2c963f66afa6', 'John', 'Doe', '1234567890', NOW()),
+('c9b1f9d2-2b2e-4b5a-9d4b-1f4a2f6a7e8c', 'Jane', 'Smith', '0987654321', NOW());
+
+
+-- Añadimos datos a la base de datos
+INSERT INTO public.services (id, client_id, service_type, price, created_at)
+VALUES
+('11111111-1111-1111-1111-111111111111', '3fa85f64-5717-4562-b3fc-2c963f66afa6', 'Covi', 15.00, NOW()),
+('22222222-2222-2222-2222-222222222222', '3fa85f64-5717-4562-b3fc-2c963f66afa6', 'Covi',  5.00, NOW()),
+('33333333-3333-3333-3333-333333333333', 'c9b1f9d2-2b2e-4b5a-9d4b-1f4a2f6a7e8c', 'Degradado', 15.00, NOW()),
+('44444444-4444-4444-4444-444444444444', 'c9b1f9d2-2b2e-4b5a-9d4b-1f4a2f6a7e8c', 'Barba', 10.00, NOW());
