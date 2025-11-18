@@ -75,9 +75,7 @@ function clientsReducer(
     case "SET_CLIENTS":
       return {
         ...state,
-        clients: action.payload.sort((a, b) =>
-          a.first_name.localeCompare(b.first_name),
-        ),
+        clients: action.payload,
         loading: false,
         error: null,
         lastUpdated: Date.now(),
@@ -86,20 +84,16 @@ function clientsReducer(
     case "ADD_CLIENT":
       return {
         ...state,
-        clients: [...state.clients, action.payload].sort((a, b) =>
-          a.first_name.localeCompare(b.first_name),
-        ),
+        clients: [...state.clients, action.payload],
         lastUpdated: Date.now(),
       };
 
     case "UPDATE_CLIENT":
       return {
         ...state,
-        clients: state.clients
-          .map((client) =>
-            client.id === action.payload.id ? action.payload : client,
-          )
-          .sort((a, b) => a.first_name.localeCompare(b.first_name)),
+        clients: state.clients.map((client) =>
+          client.id === action.payload.id ? action.payload : client,
+        ),
         lastUpdated: Date.now(),
       };
 
@@ -124,9 +118,7 @@ function clientsReducer(
       };
       return {
         ...state,
-        clients: [...state.clients, optimisticClient].sort((a, b) =>
-          a.first_name.localeCompare(b.first_name),
-        ),
+        clients: [...state.clients, optimisticClient],
         lastUpdated: Date.now(),
       };
     }
@@ -134,11 +126,9 @@ function clientsReducer(
     case "OPTIMISTIC_UPDATE_CLIENT":
       return {
         ...state,
-        clients: state.clients
-          .map((client) =>
-            client.id === action.payload.id ? action.payload : client,
-          )
-          .sort((a, b) => a.first_name.localeCompare(b.first_name)),
+        clients: state.clients.map((client) =>
+          client.id === action.payload.id ? action.payload : client,
+        ),
         lastUpdated: Date.now(),
       };
 
@@ -152,9 +142,7 @@ function clientsReducer(
     case "REVERT_OPTIMISTIC":
       return {
         ...state,
-        clients: action.payload.sort((a, b) =>
-          a.first_name.localeCompare(b.first_name),
-        ),
+        clients: action.payload,
         lastUpdated: Date.now(),
       };
 
@@ -255,7 +243,7 @@ export const ClientsProvider: React.FC<ClientsProviderProps> = ({
       const { data, error } = await supabase
         .from("clients")
         .select("*")
-        .order("first_name");
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 

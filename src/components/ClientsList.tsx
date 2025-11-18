@@ -12,7 +12,10 @@ import {
   Pencil,
   Search,
   User,
-  Users as UsersIcon
+  Users as UsersIcon,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -46,6 +49,7 @@ interface ClientsListProps {
 const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState<"recent" | "asc" | "desc">("recent");
 
   const handleDelete = async (id: string) => {
     try {
@@ -118,6 +122,23 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
     );
   });
 
+  // Sort clients based on selected order
+  const sortedClients = [...filteredClients].sort((a, b) => {
+    switch (sortOrder) {
+      case "recent":
+        // Most recent first
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "asc":
+        // Alphabetical ascending
+        return getFullName(a).localeCompare(getFullName(b));
+      case "desc":
+        // Alphabetical descending
+        return getFullName(b).localeCompare(getFullName(a));
+      default:
+        return 0;
+    }
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -131,16 +152,47 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
 
   return (
     <div className="space-y-6">
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Buscar cliente por nombre o teléfono..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 bg-input border-border/50 focus:border-cyber-glow"
-        />
+      {/* Search Bar and Sorting */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar cliente por nombre o teléfono..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-input border-border/50 focus:border-cyber-glow"
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <Button
+            variant={sortOrder === "recent" ? "default" : "outline"}
+            onClick={() => setSortOrder("recent")}
+            className={sortOrder === "recent" ? "bg-cyber-glow text-black hover:bg-cyber-glow/90" : ""}
+          >
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            Recientes
+          </Button>
+          
+          <Button
+            variant={sortOrder === "asc" ? "default" : "outline"}
+            onClick={() => setSortOrder("asc")}
+            className={sortOrder === "asc" ? "bg-cyber-glow text-black hover:bg-cyber-glow/90" : ""}
+          >
+            <ArrowUp className="h-4 w-4 mr-2" />
+            A-Z
+          </Button>
+          
+          <Button
+            variant={sortOrder === "desc" ? "default" : "outline"}
+            onClick={() => setSortOrder("desc")}
+            className={sortOrder === "desc" ? "bg-cyber-glow text-black hover:bg-cyber-glow/90" : ""}
+          >
+            <ArrowDown className="h-4 w-4 mr-2" />
+            Z-A
+          </Button>
+        </div>
       </div>
 
       {/* Results Count */}
@@ -148,8 +200,8 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <UsersIcon className="h-4 w-4" />
           <span>
-            {filteredClients.length} cliente{filteredClients.length !== 1 ? "s" : ""}
-            {searchTerm && ` encontrado${filteredClients.length !== 1 ? "s" : ""}`}
+            {sortedClients.length} cliente{sortedClients.length !== 1 ? "s" : ""}
+            {searchTerm && ` encontrado${sortedClients.length !== 1 ? "s" : ""}`}
           </span>
         </div>
         {searchTerm && (
@@ -165,7 +217,7 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
       </div>
 
       {/* Clients Grid */}
-      {filteredClients.length === 0 ? (
+      {sortedClients.length === 0 ? (
         <Card className="p-8 text-center bg-card/50 backdrop-blur-xl border-border/50">
           <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold mb-2">
@@ -180,7 +232,7 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((client) => (
+          {sortedClients.map((client) => (
             <Card
               key={client.id}
               className="p-4 bg-card/50 backdrop-blur-xl border-border/50 hover:border-cyber-glow/30 transition-all duration-200"
