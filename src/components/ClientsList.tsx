@@ -15,7 +15,9 @@ import {
   Users as UsersIcon,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  AlertTriangle,
+  Eye
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -29,6 +31,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Client {
   id: string;
@@ -50,6 +60,8 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"recent" | "asc" | "desc">("recent");
+  const [clientWithServices, setClientWithServices] = useState<{client: Client, serviceCount: number} | null>(null);
+  const [showServicesDialog, setShowServicesDialog] = useState(false);
 
   const handleDelete = async (id: string) => {
     try {
@@ -64,10 +76,15 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
       if (servicesError) throw servicesError;
 
       if (services && services.length > 0) {
-        toast.error(`No se puede eliminar el cliente porque tiene ${services.length} servicio(s) asociado(s)`);
+        const client = clients.find(c => c.id === id);
+        if (client) {
+          setClientWithServices({client, serviceCount: services.length});
+          setShowServicesDialog(true);
+        }
         return;
       }
 
+      // If no services, proceed with deletion
       const { error } = await supabase
         .from("clients")
         .delete()
@@ -83,6 +100,26 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
       toast.error("Error al eliminar cliente: " + errorMessage);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const confirmDeleteWithServices = async () => {
+    if (!clientWithServices) return;
+    
+    try {
+      // In a real application, you might want to implement cascading deletion
+      // or transfer services to another client before deleting
+      toast.error(
+        `No se puede eliminar el cliente porque tiene ${clientWithServices.serviceCount} servicio(s) asociado(s). ` +
+        "Por favor, elimine primero los servicios asociados o transfiera estos servicios a otro cliente."
+      );
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      toast.error("Error al procesar la solicitud: " + errorMessage);
+    } finally {
+      setShowServicesDialog(false);
+      setClientWithServices(null);
     }
   };
 
@@ -274,12 +311,21 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
                     </AlertDialogTrigger>
                     <AlertDialogContent className="bg-card/95 backdrop-blur-xl border-border/50">
                       <AlertDialogHeader>
-                        <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta acción no se puede deshacer. Se eliminará permanentemente
-                          al cliente <strong>{getFullName(client)}</strong> de tu base de datos.
-                          {"\n\n"}
-                          <strong>Nota:</strong> No podrás eliminar el cliente si tiene servicios asociados.
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                          Confirmar Eliminación
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                          <p>
+                            ¿Está seguro que desea eliminar al cliente <strong>{getFullName(client)}</strong>?
+                          </p>
+                          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                              <strong>Importante:</strong> Si este cliente tiene servicios registrados, 
+                              no podrá ser eliminado directamente. En su lugar, se le mostrará un mensaje 
+                              con las opciones disponibles para manejar los servicios asociados.
+                            </p>
+                          </div>
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -290,7 +336,7 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
                           onClick={() => handleDelete(client.id)}
                           className="bg-red-500 hover:bg-red-600 text-white"
                         >
-                          Eliminar
+                          Proceder con Eliminación
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -337,6 +383,66 @@ const ClientsList = ({ clients, onUpdate, loading, onEdit }: ClientsListProps) =
           ))}
         </div>
       )}
+
+      {/* Professional dialog for clients with services */}
+      <Dialog open={showServicesDialog} onOpenChange={setShowServicesDialog}>
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-border/50 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-500">
+              <AlertTriangle className="h-5 w-5" />
+              Acción Restringida
+            </DialogTitle>
+            <DialogDescription className="pt-2 space-y-3">
+              {clientWithServices && (
+                <>
+                  <p>
+                    El cliente <strong>{getFullName(clientWithServices.client)}</strong> tiene {clientWithServices.serviceCount} servicio(s) asociado(s) en el sistema.
+                  </p>
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      <strong>Política de Protección de Datos:</strong> No se permite la eliminación directa de clientes con registros activos para mantener la integridad del historial de servicios.
+                    </p>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <h4 className="font-medium">Opciones disponibles:</h4>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <Eye className="h-4 w-4 mt-0.5 text-cyber-glow flex-shrink-0" />
+                        <span>Revisar y eliminar manualmente los servicios asociados</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <ArrowUpDown className="h-4 w-4 mt-0.5 text-cyber-glow flex-shrink-0" />
+                        <span>Transferir servicios a otro cliente antes de eliminar</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <User className="h-4 w-4 mt-0.5 text-cyber-glow flex-shrink-0" />
+                        <span>Marcar como cliente inactivo (recomendado)</span>
+                      </li>
+                    </ul>
+                  </div>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowServicesDialog(false)}
+              className="border-border/50"
+            >
+              Entendido
+            </Button>
+            <Button
+              onClick={confirmDeleteWithServices}
+              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled
+            >
+              Eliminar (Bloqueado)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
