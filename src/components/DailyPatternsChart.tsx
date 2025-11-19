@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   BarChart,
   Bar,
@@ -43,6 +44,60 @@ interface DailyPatternsChartProps {
 }
 
 const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps) => {
+  const [period, setPeriod] = useState<"week" | "month" | "year">("year");
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+
+  const currentYear = new Date().getFullYear();
+  const isCurrentYear = !selectedYear || selectedYear === currentYear;
+
+  // Get available months with services for current year
+  const availableMonths = useMemo(() => {
+    if (!isCurrentYear || period !== "month") return [];
+    
+    const months = new Set<number>();
+    services.forEach(service => {
+      const serviceDate = new Date(service.created_at);
+      if (serviceDate.getFullYear() === currentYear) {
+        months.add(serviceDate.getMonth());
+      }
+    });
+    
+    return Array.from(months).sort((a, b) => a - b);
+  }, [services, isCurrentYear, period, currentYear]);
+
+  // Auto-switch to year view for past years
+  useEffect(() => {
+    if (!isCurrentYear && period !== "year") {
+      setPeriod("year");
+    }
+  }, [selectedYear, isCurrentYear, period]);
+
+  // Filter services based on period selection
+  const filteredServices = useMemo(() => {
+    if (period === "year") {
+      return services;
+    }
+
+    if (period === "month") {
+      return services.filter((s) => {
+        const serviceDate = new Date(s.created_at);
+        return serviceDate.getFullYear() === currentYear && serviceDate.getMonth() === selectedMonth;
+      });
+    }
+
+    if (period === "week") {
+      // Last 7 days from today (only for current year)
+      const today = new Date();
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return services.filter((s) => {
+        const serviceDate = new Date(s.created_at);
+        return serviceDate >= weekAgo && serviceDate <= today;
+      });
+    }
+
+    return services;
+  }, [services, period, selectedMonth, currentYear]);
   const chartData = useMemo(() => {
     // Análisis por día de la semana
     const dayNames = [
@@ -56,7 +111,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
     ];
 
     const dayStats = dayNames.map((day, index) => {
-      const dayServices = services.filter((service) => {
+      const dayServices = filteredServices.filter((service) => {
         const date = new Date(service.created_at);
         return date.getDay() === index;
       });
@@ -76,7 +131,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
 
     // Análisis por horas del día
     const hourlyStats = Array.from({ length: 24 }, (_, hour) => {
-      const hourServices = services.filter((service) => {
+      const hourServices = filteredServices.filter((service) => {
         const date = new Date(service.created_at);
         return date.getHours() === hour;
       });
@@ -90,7 +145,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
 
     // Análisis de servicios más populares por día
     const serviceTypesByDay = dayNames.map((day, dayIndex) => {
-      const dayServices = services.filter((service) => {
+      const dayServices = filteredServices.filter((service) => {
         const date = new Date(service.created_at);
         return date.getDay() === dayIndex;
       });
@@ -115,14 +170,42 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       };
     });
 
-    // Últimos 30 días para tendencia (optimizado para usar índices)
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0); // Normalizar a medianoche
+    // Tendencia dinámica basada en el período seleccionado
+    let trendDays = 30;
+    let trendLabel = "Últimos 30 Días";
+    
+    if (period === "week") {
+      trendDays = 7;
+      trendLabel = "Últimos 7 Días";
+    } else if (period === "month") {
+      // Para el mes seleccionado, obtener todos los días del mes
+      const daysInMonth = new Date(currentYear, selectedMonth + 1, 0).getDate();
+      trendDays = daysInMonth;
+      trendLabel = `Días de ${new Date(currentYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${currentYear}`;
+    } else if (period === "year") {
+      trendDays = 365;
+      trendLabel = "Últimos 365 Días";
+    }
+
+    const trendData = Array.from({ length: trendDays }, (_, i) => {
+      let date;
+      if (period === "month") {
+        // Para el mes seleccionado, usar días específicos del mes
+        date = new Date(currentYear, selectedMonth, i + 1);
+      } else if (period === "week") {
+        // Para la semana, usar los últimos 7 días
+        date = new Date();
+        date.setDate(date.getDate() - (6 - i));
+      } else {
+        // Para el año, usar los últimos 365 días
+        date = new Date();
+        date.setDate(date.getDate() - (trendDays - 1 - i));
+      }
+      
+      date.setHours(0, 0, 0, 0);
       const compareDate = date.getTime();
 
-      const dayServices = services.filter((service) => {
+      const dayServices = filteredServices.filter((service) => {
         const serviceDate = new Date(service.created_at);
         serviceDate.setHours(0, 0, 0, 0);
         return serviceDate.getTime() === compareDate;
@@ -134,15 +217,15 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
         services: dayServices.length,
         revenue: dayServices.reduce((sum, service) => sum + service.price, 0),
       };
-    }).reverse();
+    });
 
     return {
       dayStats,
       hourlyStats,
       serviceTypesByDay,
-      last30Days,
+      trendData,
     };
-  }, [services]);
+  }, [filteredServices, period, selectedMonth, currentYear]);
 
   const insights = useMemo(() => {
     const { dayStats } = chartData;
@@ -221,6 +304,70 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
 
   return (
     <div className="space-y-6">
+      {/* Period Filter Controls */}
+      <Card className="p-4 bg-card/50 backdrop-blur-xl border-border/50">
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Período:</span>
+            {isCurrentYear && (
+              <div className="flex gap-2">
+                <Button
+                  variant={period === "week" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPeriod("week")}
+                  className={period === "week" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+                >
+                  Últimos 7 Días
+                </Button>
+                <Button
+                  variant={period === "month" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPeriod("month")}
+                  className={period === "month" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+                >
+                  Mes
+                </Button>
+                <Button
+                  variant={period === "year" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPeriod("year")}
+                  className={period === "year" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+                >
+                  Año Completo
+                </Button>
+              </div>
+            )}
+            {!isCurrentYear && (
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-gradient-to-r from-cyber-glow to-cyber-secondary cursor-default"
+              >
+                Vista Anual
+              </Button>
+            )}
+          </div>
+
+          {/* Month selector - only show when month period is selected and it's current year */}
+          {period === "month" && isCurrentYear && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Mes:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-cyber-glow"
+              >
+                {availableMonths.map(month => (
+                  <option key={month} value={month}>
+                    {new Date(currentYear, month).toLocaleDateString('es-ES', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </Card>
+
       {/* Insights Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4 bg-gradient-to-br from-green-500/10 to-green-600/10 border-green-500/20">
@@ -397,10 +544,10 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
         <Card className="p-6 bg-card/50 backdrop-blur-xl border-border/50">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-purple-500" />
-            Tendencia Últimos 30 Días
+            Tendencia {period === 'week' ? 'Últimos 7 Días' : period === 'month' ? `Días de ${new Date(currentYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${currentYear}` : 'Últimos 365 Días'}
           </h3>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={chartData.last30Days}>
+            <LineChart data={chartData.trendData}>
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
@@ -503,9 +650,9 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       <div className="mt-8">
         <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
           <TrendingUp className="h-6 w-6 text-cyber-glow" />
-          Insights y Recomendaciones Personalizadas{selectedYear ? ` - ${selectedYear}` : ''}
+          Insights y Recomendaciones Personalizadas{selectedYear ? ` - ${selectedYear}` : ''}{period === 'month' ? ` (${new Date(selectedYear || new Date().getFullYear(), selectedMonth).toLocaleDateString('es-ES', { month: 'long' })})` : ''}
         </h3>
-        <BusinessInsights services={services} selectedYear={selectedYear} />
+        <BusinessInsights services={services} selectedYear={selectedYear} selectedMonth={selectedMonth} period={period} />
       </div>
     </div>
   );

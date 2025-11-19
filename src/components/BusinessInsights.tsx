@@ -35,9 +35,11 @@ interface Service {
 interface BusinessInsightsProps {
   services: Service[];
   selectedYear?: number;
+  selectedMonth?: number;
+  period?: "week" | "month" | "year";
 }
 
-const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => {
+const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "year" }: BusinessInsightsProps) => {
   const insights = useMemo(() => {
     if (services.length === 0) {
       return {
@@ -48,15 +50,63 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
       };
     }
 
+    // Filter services based on selected period, year, and month
+    const filteredServices = services.filter((service) => {
+      const serviceDate = new Date(service.created_at);
+      
+      // If no year selected, use all services
+      if (!selectedYear) return true;
+      
+      // If year doesn't match, exclude service
+      if (serviceDate.getFullYear() !== selectedYear) return false;
+      
+      // If period is month and month doesn't match, exclude service
+      if (period === "month" && selectedMonth !== undefined && serviceDate.getMonth() !== selectedMonth) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    if (filteredServices.length === 0) {
+      return {
+        recommendations: [],
+        warnings: [],
+        opportunities: [],
+        performance: null,
+      };
+    }
+
     const now = new Date();
-    const last30Days = services.filter((service) => {
+    const currentYear = selectedYear || now.getFullYear();
+    
+    // For period-based filtering (same logic as DailyPatternsChart)
+    let relevantServices = filteredServices;
+    
+    if (period === "week") {
+      // Last 7 days from today (only for selected year)
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      relevantServices = filteredServices.filter(service => {
+        const serviceDate = new Date(service.created_at);
+        return serviceDate >= weekAgo && serviceDate <= now;
+      });
+    } else if (period === "month") {
+      // All services in the selected month and year
+      relevantServices = filteredServices;
+    } else {
+      // All services in the selected year
+      relevantServices = filteredServices;
+    }
+
+    const last30Days = relevantServices.filter((service) => {
       const serviceDate = new Date(service.created_at);
       const daysDiff =
         (now.getTime() - serviceDate.getTime()) / (1000 * 60 * 60 * 24);
       return daysDiff <= 30;
     });
 
-    const last7Days = services.filter((service) => {
+    const last7Days = relevantServices.filter((service) => {
       const serviceDate = new Date(service.created_at);
       const daysDiff =
         (now.getTime() - serviceDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -74,7 +124,7 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
       "Sábado",
     ];
     const dayStats = dayNames.map((day, index) => {
-      const dayServices = services.filter((service) => {
+      const dayServices = relevantServices.filter((service) => {
         const date = new Date(service.created_at);
         return date.getDay() === index;
       });
@@ -86,7 +136,7 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
     });
 
     // Análisis de servicios
-    const serviceTypeStats = services.reduce(
+    const serviceTypeStats = relevantServices.reduce(
       (acc, service) => {
         acc[service.service_type] = (acc[service.service_type] || 0) + 1;
         return acc;
@@ -103,11 +153,11 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
     )[0];
 
     // Análisis de precios
-    const prices = services.map((s) => s.price);
+    const prices = relevantServices.map((s) => s.price);
     const avgPrice =
-      prices.reduce((sum, price) => sum + price, 0) / prices.length;
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
+      prices.length > 0 ? prices.reduce((sum, price) => sum + price, 0) / prices.length : 0;
+    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
 
     // Días más y menos productivos
     const bestDay = dayStats.reduce((max, day) =>
@@ -120,12 +170,12 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
     // Análisis de tendencias
     const weeklyRevenue = last7Days.reduce((sum, s) => sum + s.price, 0);
     const monthlyRevenue = last30Days.reduce((sum, s) => sum + s.price, 0);
-    const dailyAverage = weeklyRevenue / 7;
-    const monthlyAverage = monthlyRevenue / 30;
+    const dailyAverage = last7Days.length > 0 ? weeklyRevenue / 7 : 0;
+    const monthlyAverage = last30Days.length > 0 ? monthlyRevenue / 30 : 0;
 
     // Análisis de clientes
-    const uniqueClients = new Set(services.map((s) => s.client_id)).size;
-    const repeatClients = services.reduce(
+    const uniqueClients = new Set(relevantServices.map((s) => s.client_id)).size;
+    const repeatClients = relevantServices.reduce(
       (acc, service) => {
         if (service.client) {
           const clientName =
@@ -150,16 +200,28 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
 
     // Recomendaciones basadas en días
     if (bestDay.count > worstDay.count * 2) {
+      let recommendationText = `${bestDay.day} es tu día más productivo (${bestDay.count} servicios).`;
+      
+      if (period === "month") {
+        recommendationText += ` En ${new Date(selectedYear || now.getFullYear(), selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${selectedYear || now.getFullYear()}.`;
+      } else if (period === "week") {
+        recommendationText += " En los últimos 7 días. ";
+      } else {
+        recommendationText += ` En ${selectedYear || now.getFullYear()}.`;
+      }
+      
+      recommendationText += " Considera abrir más temprano o cerrar más tarde este día.";
+      
       recommendations.push({
         type: "schedule",
         priority: "high",
         title: "Optimizar horarios",
-        description: `${bestDay.day} es tu día más productivo (${bestDay.count} servicios). Considera abrir más temprano o cerrar más tarde este día.`,
+        description: recommendationText,
         icon: Clock,
       });
     }
 
-    if (worstDay.count < 3 && services.length > 20) {
+    if (worstDay.count < 3 && relevantServices.length > 20) {
       opportunities.push({
         type: "marketing",
         priority: "medium",
@@ -170,7 +232,7 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
     }
 
     // Recomendaciones basadas en servicios
-    if (mostPopularService && mostPopularService[1] > services.length * 0.4) {
+    if (mostPopularService && mostPopularService[1] > relevantServices.length * 0.4) {
       opportunities.push({
         type: "service",
         priority: "medium",
@@ -180,7 +242,7 @@ const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => 
       });
     }
 
-    if (leastPopularService && leastPopularService[1] < services.length * 0.1) {
+    if (leastPopularService && leastPopularService[1] < relevantServices.length * 0.1) {
       warnings.push({
         type: "service",
         priority: "low",
