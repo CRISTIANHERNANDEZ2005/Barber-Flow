@@ -11,25 +11,27 @@ interface Service {
 
 interface RevenueChartProps {
   services: Service[];
-  selectedYear?: number;
+  selectedYears?: number[];
 }
 
 type Period = "week" | "month" | "year";
 type ChartType = "bar" | "pie";
 
-const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
+const RevenueChart = ({ services, selectedYears = [] }: RevenueChartProps) => {
   const [period, setPeriod] = useState<Period>("week");
   const [chartType, setChartType] = useState<ChartType>("bar");
 
   const currentYear = new Date().getFullYear();
-  const isCurrentYear = !selectedYear || selectedYear === currentYear;
+  // Check if we are viewing ONLY the current year
+  const isOnlyCurrentYear = selectedYears.length === 1 && selectedYears[0] === currentYear;
+  const isMultiYear = selectedYears.length > 1;
 
-  // Auto-switch to year view for past years
+  // Auto-switch to year view for past years or multi-year selection
   useEffect(() => {
-    if (!isCurrentYear && period !== "year") {
+    if (!isOnlyCurrentYear && period !== "year") {
       setPeriod("year");
     }
-  }, [selectedYear, isCurrentYear, period]);
+  }, [selectedYears, isOnlyCurrentYear, period]);
 
   const CHART_COLORS = [
     "hsl(210, 100%, 60%)",  // Azul vibrante
@@ -78,11 +80,8 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
   };
 
   const getChartData = () => {
-    let days: Date[] = [];
+    let days: any[] = [];
     let format: Intl.DateTimeFormatOptions = {};
-
-    const currentYear = new Date().getFullYear();
-    const isCurrentYear = !selectedYear || selectedYear === currentYear;
 
     switch (period) {
       case "week":
@@ -108,13 +107,27 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
         break;
 
       case "year":
-        // Show all 12 months of the selected year
-        days = Array.from({ length: 12 }, (_, i) => {
-          const date = new Date(selectedYear || currentYear, i, 1);
-          date.setHours(0, 0, 0, 0);
-          return date;
-        });
-        format = { month: "short" };
+        if (isMultiYear) {
+          // Show one bar per year
+          return selectedYears.sort((a, b) => a - b).map(year => {
+            const yearServices = services.filter(s => new Date(s.created_at).getFullYear() === year);
+            const revenue = yearServices.reduce((sum, s) => sum + Number(s.price), 0);
+            return {
+              name: year.toString(),
+              ingresos: revenue,
+              servicios: yearServices.length
+            };
+          });
+        } else {
+          // Show all 12 months of the selected year
+          const targetYear = selectedYears[0] || currentYear;
+          days = Array.from({ length: 12 }, (_, i) => {
+            const date = new Date(targetYear, i, 1);
+            date.setHours(0, 0, 0, 0);
+            return date;
+          });
+          format = { month: "short" };
+        }
         break;
     }
 
@@ -146,10 +159,10 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
   const totalRevenue = pieChartData.reduce((sum, item) => sum + item.ingresos, 0);
 
   const getPeriodTitle = () => {
-    const currentYear = new Date().getFullYear();
-    const isCurrentYear = !selectedYear || selectedYear === currentYear;
-    const yearSuffix = selectedYear ? ` (${selectedYear})` : '';
-    
+    if (isMultiYear) return `Anual (${selectedYears.join(", ")})`;
+
+    const yearSuffix = selectedYears.length > 0 ? ` (${selectedYears[0]})` : '';
+
     switch (period) {
       case "week":
         return `Últimos 7 Días${yearSuffix}`;
@@ -183,7 +196,7 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
               Circular
             </Button>
           </div>
-          {isCurrentYear && (
+          {isOnlyCurrentYear && (
             <div className="flex gap-2">
               <Button
                 variant={period === "week" ? "default" : "outline"}
@@ -211,14 +224,14 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
               </Button>
             </div>
           )}
-          {!isCurrentYear && (
+          {!isOnlyCurrentYear && (
             <div className="flex gap-2">
               <Button
                 variant="default"
                 size="sm"
                 className="bg-gradient-to-r from-cyber-glow to-cyber-secondary cursor-default"
               >
-                Vista Anual
+                {isMultiYear ? "Comparativa Anual" : "Vista Anual"}
               </Button>
             </div>
           )}
@@ -228,12 +241,12 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
         {chartType === "bar" ? (
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-            <XAxis 
-              dataKey="name" 
+            <XAxis
+              dataKey="name"
               stroke="hsl(var(--muted-foreground))"
               tick={{ fill: "hsl(var(--muted-foreground))" }}
             />
-            <YAxis 
+            <YAxis
               stroke="hsl(var(--muted-foreground))"
               tick={{ fill: "hsl(var(--muted-foreground))" }}
             />
@@ -247,9 +260,9 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
               labelStyle={{ color: "hsl(var(--foreground))" }}
               itemStyle={{ color: "hsl(var(--cyber-glow))" }}
             />
-            <Bar 
-              dataKey="ingresos" 
-              fill="url(#colorGradient)" 
+            <Bar
+              dataKey="ingresos"
+              fill="url(#colorGradient)"
               radius={[8, 8, 0, 0]}
             />
             <defs>
@@ -286,8 +299,8 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
                     animationEasing="ease-out"
                   >
                     {pieChartData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
+                      <Cell
+                        key={`cell-${index}`}
                         fill={CHART_COLORS[index % CHART_COLORS.length]}
                         className="hover:opacity-80 transition-opacity duration-200 cursor-pointer"
                         style={{
@@ -305,16 +318,16 @@ const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
                       padding: "12px",
                       boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
                     }}
-                    itemStyle={{ 
+                    itemStyle={{
                       color: "hsl(var(--foreground))",
                       fontWeight: "600",
                     }}
                     formatter={(value: number) => [`$${value.toFixed(2)}`, 'Ingresos']}
                   />
-                  <Legend 
+                  <Legend
                     verticalAlign="bottom"
                     height={36}
-                    wrapperStyle={{ 
+                    wrapperStyle={{
                       color: "hsl(var(--foreground))",
                       fontSize: "14px",
                       fontWeight: "500",

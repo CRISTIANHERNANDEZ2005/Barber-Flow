@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   LineChart,
   Line,
 } from "recharts";
@@ -40,67 +37,60 @@ interface Service {
 
 interface DailyPatternsChartProps {
   services: Service[];
-  selectedYear?: number;
+  selectedYears?: number[];
 }
 
-const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps) => {
+const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChartProps) => {
   const [period, setPeriod] = useState<"week" | "month" | "year">("year");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
 
   const currentYear = new Date().getFullYear();
-  const targetYear = selectedYear || currentYear;
-  const isCurrentYear = targetYear === currentYear;
+  // Use the most recent selected year as the primary context for month/trend views
+  const primaryYear = selectedYears.length > 0 ? Math.max(...selectedYears) : currentYear;
 
-  // Get available months with services for selected year
+  // Get available months with services for selected years
   const availableMonths = useMemo(() => {
     if (period !== "month") return [];
 
     const months = new Set<number>();
     services.forEach(service => {
       const serviceDate = new Date(service.created_at);
-      if (serviceDate.getFullYear() === targetYear) {
+      if (selectedYears.includes(serviceDate.getFullYear())) {
         months.add(serviceDate.getMonth());
       }
     });
 
     return Array.from(months).sort((a, b) => a - b);
-  }, [services, targetYear, period]);
+  }, [services, selectedYears, period]);
 
   // Filter services based on period selection
   const filteredServices = useMemo(() => {
     if (period === "year") {
-      return services.filter(s => new Date(s.created_at).getFullYear() === targetYear);
+      return services.filter(s => selectedYears.includes(new Date(s.created_at).getFullYear()));
     }
 
     if (period === "month") {
       return services.filter((s) => {
         const serviceDate = new Date(s.created_at);
-        return serviceDate.getFullYear() === targetYear && serviceDate.getMonth() === selectedMonth;
+        return selectedYears.includes(serviceDate.getFullYear()) && serviceDate.getMonth() === selectedMonth;
       });
     }
 
     if (period === "week") {
-      // Week view only available/relevant for current context usually, 
-      // but if user selects it for past year, we might just show the year or disable it.
-      // For now, let's keep the original logic which was relative to "today".
-      // If we are looking at 2023, "last 7 days from today" is empty.
-      // So we should probably force "year" if they try to select "week" in a past year?
-      // Or better, just show the year data if they select week in past year.
-      if (!isCurrentYear) {
-        return services.filter(s => new Date(s.created_at).getFullYear() === targetYear);
-      }
-
+      // For week view, we default to the last 7 days relative to TODAY
+      // This is standard behavior. If user wants historical week data, they usually check specific dates.
+      // We filter by selected years to ensure consistency (e.g. if 2023 is selected, don't show today's data)
       const today = new Date();
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 7);
       return services.filter((s) => {
         const serviceDate = new Date(s.created_at);
-        return serviceDate >= weekAgo && serviceDate <= today;
+        return serviceDate >= weekAgo && serviceDate <= today && selectedYears.includes(serviceDate.getFullYear());
       });
     }
 
     return services;
-  }, [services, period, selectedMonth, targetYear, isCurrentYear]);
+  }, [services, period, selectedMonth, selectedYears]);
 
   const chartData = useMemo(() => {
     // Análisis por día de la semana
@@ -145,7 +135,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
         services: hourServices.length,
         revenue: hourServices.reduce((sum, service) => sum + service.price, 0),
       };
-    }).filter((stat) => stat.services > 0); // Solo mostrar horas con servicios
+    }).filter((stat) => stat.services > 0);
 
     // Análisis de servicios más populares por día
     const serviceTypesByDay = dayNames.map((day, dayIndex) => {
@@ -177,10 +167,10 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
     // Tendencia dinámica basada en el período seleccionado
     let trendDays = 30;
 
-    if (period === "week" && isCurrentYear) {
+    if (period === "week") {
       trendDays = 7;
     } else if (period === "month") {
-      const daysInMonth = new Date(targetYear, selectedMonth + 1, 0).getDate();
+      const daysInMonth = new Date(primaryYear, selectedMonth + 1, 0).getDate();
       trendDays = daysInMonth;
     } else {
       trendDays = 365;
@@ -189,27 +179,37 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
     const trendData = Array.from({ length: trendDays }, (_, i) => {
       let date;
       if (period === "month") {
-        date = new Date(targetYear, selectedMonth, i + 1);
-      } else if (period === "week" && isCurrentYear) {
+        date = new Date(primaryYear, selectedMonth, i + 1);
+      } else if (period === "week") {
         date = new Date();
         date.setDate(date.getDate() - (6 - i));
       } else {
-        // Year view: show last 365 days or all days of year?
-        // If past year, show days of that year.
-        // Simplified: just show last 365 days if current year, or whole year if past.
-        // But for "trend", usually a line chart needs sequential dates.
-        // Let's just use the targetYear.
-        date = new Date(targetYear, 0, 1);
+        date = new Date(primaryYear, 0, 1);
         date.setDate(date.getDate() + i);
       }
 
       date.setHours(0, 0, 0, 0);
-      const compareDate = date.getTime();
+
+      // For trend, we want to see the pattern. 
+      // If multiple years are selected, showing a single line for "Jan 1" that aggregates 2024+2025 might be confusing but it shows the "seasonal pattern".
+      // However, for "Trend", usually we want linear time. 
+      // Since we are constrained to a simple view, we will aggregate by "Day of Year" (or Day of Month) across selected years.
+
+      const day = date.getDate();
+      const month = date.getMonth();
 
       const dayServices = filteredServices.filter((service) => {
         const serviceDate = new Date(service.created_at);
-        serviceDate.setHours(0, 0, 0, 0);
-        return serviceDate.getTime() === compareDate;
+
+        if (period === "week") {
+          // Exact date match for last 7 days
+          const sDate = new Date(serviceDate);
+          sDate.setHours(0, 0, 0, 0);
+          return sDate.getTime() === date.getTime();
+        } else {
+          // Match day/month across years
+          return serviceDate.getDate() === day && serviceDate.getMonth() === month;
+        }
       });
 
       return {
@@ -226,17 +226,27 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       serviceTypesByDay,
       trendData,
     };
-  }, [filteredServices, period, selectedMonth, targetYear, isCurrentYear]);
+  }, [filteredServices, period, selectedMonth, selectedYears, primaryYear]);
 
   const insights = useMemo(() => {
     const { dayStats } = chartData;
 
+    if (dayStats.length === 0) return {
+      bestDay: { day: "N/A", services: 0 },
+      worstDay: { day: "N/A", services: 0 },
+      avgServicesPerDay: "0",
+      busyDaysCount: 0,
+      slowDaysCount: 0,
+    };
+
     const bestDay = dayStats.reduce((max, day) =>
       day.services > max.services ? day : max,
+      dayStats[0]
     );
 
     const worstDay = dayStats.reduce((min, day) =>
       day.services < min.services ? day : min,
+      dayStats[0]
     );
 
     const totalServices = dayStats.reduce((sum, day) => sum + day.services, 0);
@@ -301,19 +311,17 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Período:</span>
             <div className="flex p-1 bg-muted/50 rounded-lg w-full sm:w-auto">
-              {isCurrentYear && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPeriod("week")}
-                  className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "week"
-                      ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                      : "text-muted-foreground hover:text-foreground"
-                    }`}
-                >
-                  7 Días
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPeriod("week")}
+                className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "week"
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                  }`}
+              >
+                7 Días
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -350,7 +358,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
               >
                 {availableMonths.map(month => (
                   <option key={month} value={month}>
-                    {new Date(targetYear, month).toLocaleDateString('es-ES', { month: 'long' })}
+                    {new Date(primaryYear, month).toLocaleDateString('es-ES', { month: 'long' })}
                   </option>
                 ))}
               </select>
@@ -543,7 +551,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
         <Card className="p-6 bg-card/50 backdrop-blur-xl border-border/50">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-purple-500" />
-            Tendencia {period === 'week' ? 'Últimos 7 Días' : period === 'month' ? `Días de ${new Date(targetYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${targetYear}` : 'Últimos 365 Días'}
+            Tendencia {period === 'week' ? 'Últimos 7 Días' : period === 'month' ? `Días de ${new Date(primaryYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${primaryYear}` : 'Últimos 365 Días'}
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData.trendData}>
@@ -649,9 +657,9 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       <div className="mt-8">
         <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
           <TrendingUp className="h-6 w-6 text-cyber-glow" />
-          Insights y Recomendaciones Personalizadas{selectedYear ? ` - ${selectedYear}` : ''}{period === 'month' ? ` (${new Date(targetYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })})` : ''}
+          Insights y Recomendaciones Personalizadas{selectedYears.length > 0 ? ` - ${selectedYears.join(", ")}` : ''}{period === 'month' ? ` (${new Date(primaryYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })})` : ''}
         </h3>
-        <BusinessInsights services={services} selectedYear={targetYear} selectedMonth={selectedMonth} period={period} />
+        <BusinessInsights services={services} selectedYears={selectedYears} selectedMonth={selectedMonth} period={period} />
       </div>
     </div>
   );

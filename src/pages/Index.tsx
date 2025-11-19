@@ -55,7 +55,8 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
+  const [isCompareMode, setIsCompareMode] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
@@ -111,10 +112,10 @@ const Index = () => {
     const today = new Date();
     const todayStart = new Date(today.setHours(0, 0, 0, 0));
 
-    // Filter services by selected year
+    // Filter services by selected years
     const yearServices = services.filter((s) => {
       const serviceYear = new Date(s.created_at).getFullYear();
-      return serviceYear === selectedYear;
+      return selectedYears.includes(serviceYear);
     });
 
     const todayServices = yearServices.filter(
@@ -176,13 +177,43 @@ const Index = () => {
     return Array.from(years).sort((a, b) => b - a);
   }, [services]);
 
-  // Filter services by selected year for charts
+  // Filter services by selected years for charts
   const filteredServicesByYear = useMemo(() => {
     return services.filter((s) => {
       const serviceYear = new Date(s.created_at).getFullYear();
-      return serviceYear === selectedYear;
+      return selectedYears.includes(serviceYear);
     });
-  }, [services, selectedYear]);
+  }, [services, selectedYears]);
+
+  const toggleYear = (year: number) => {
+    setSelectedYears(prev => {
+      // If in compare mode, toggle the year
+      if (isCompareMode) {
+        if (prev.includes(year)) {
+          // Don't allow deselecting the last year if it's the only one
+          if (prev.length === 1) return prev;
+          return prev.filter(y => y !== year);
+        } else {
+          return [...prev, year].sort((a, b) => b - a);
+        }
+      } else {
+        // If NOT in compare mode, clicking a year switches to that year exclusively
+        // Unless it's already selected and the only one, then do nothing
+        if (prev.length === 1 && prev[0] === year) return prev;
+        return [year];
+      }
+    });
+  };
+
+  const toggleAllYears = () => {
+    if (selectedYears.length === availableYears.length) {
+      // If all selected, select only current year (or first available)
+      setSelectedYears([availableYears[0]]);
+    } else {
+      // Select all
+      setSelectedYears([...availableYears]);
+    }
+  };
 
   const handleEditService = (service: Service) => {
     setEditingService(service);
@@ -275,24 +306,55 @@ const Index = () => {
           <TabsContent value="dashboard" className="space-y-8">
             {/* Year Filter Selector */}
             {availableYears.length > 0 && (
-              <div className="flex justify-center items-center gap-4 mb-6">
-                <span className="text-sm font-medium text-muted-foreground">Año:</span>
-                <div className="flex gap-2 flex-wrap justify-center">
-                  {availableYears.map((year) => (
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Años:</span>
+                  <div className="flex gap-2 flex-wrap justify-center">
                     <Button
-                      key={year}
-                      variant={selectedYear === year ? "default" : "outline"}
+                      variant={selectedYears.length === availableYears.length ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setSelectedYear(year)}
+                      onClick={toggleAllYears}
                       className={
-                        selectedYear === year
+                        selectedYears.length === availableYears.length
                           ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
                           : ""
                       }
                     >
-                      {year}
+                      Todos
                     </Button>
-                  ))}
+                    {availableYears.map((year) => (
+                      <Button
+                        key={year}
+                        variant={selectedYears.includes(year) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleYear(year)}
+                        className={
+                          selectedYears.includes(year)
+                            ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
+                            : ""
+                        }
+                      >
+                        {year}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pl-0 sm:pl-4 sm:border-l border-border/50">
+                  <Button
+                    variant={isCompareMode ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      setIsCompareMode(!isCompareMode);
+                      // If turning OFF compare mode, and multiple are selected, switch to the first one (most recent)
+                      if (isCompareMode && selectedYears.length > 1) {
+                        setSelectedYears([selectedYears[0]]);
+                      }
+                    }}
+                    className="text-xs"
+                  >
+                    {isCompareMode ? "Modo Comparación: ON" : "Comparar Años"}
+                  </Button>
                 </div>
               </div>
             )}
@@ -302,7 +364,7 @@ const Index = () => {
               <StatsCard
                 title="Servicios Totales"
                 value={stats.totalServices}
-                subtitle={`En ${selectedYear}`}
+                subtitle={selectedYears.length === availableYears.length ? "Histórico Total" : `En ${selectedYears.join(", ")}`}
                 icon="scissors"
               />
               <StatsCard
@@ -318,15 +380,15 @@ const Index = () => {
                 icon="trending"
               />
               <StatsCard
-                title="Ingresos Año"
+                title="Ingresos Periodo"
                 value={`$${stats.yearRevenue.toFixed(2)}`}
-                subtitle={`Total ${selectedYear}`}
+                subtitle={`Total ${selectedYears.length > 3 ? `${selectedYears.length} años` : selectedYears.join(", ")}`}
                 icon="chart"
               />
             </div>
 
             {/* Chart Section */}
-            <RevenueChart services={filteredServicesByYear} selectedYear={selectedYear} />
+            <RevenueChart services={filteredServicesByYear} selectedYears={selectedYears} />
           </TabsContent>
 
           {/* Daily Patterns Analysis Tab */}
@@ -343,29 +405,59 @@ const Index = () => {
 
               {/* Year Filter Selector for Patterns */}
               {availableYears.length > 0 && (
-                <div className="flex justify-center items-center gap-4 mb-6">
-                  <span className="text-sm font-medium text-muted-foreground">Año:</span>
-                  <div className="flex gap-2 flex-wrap justify-center">
-                    {availableYears.map((year) => (
+                <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Años:</span>
+                    <div className="flex gap-2 flex-wrap justify-center">
                       <Button
-                        key={year}
-                        variant={selectedYear === year ? "default" : "outline"}
+                        variant={selectedYears.length === availableYears.length ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setSelectedYear(year)}
+                        onClick={toggleAllYears}
                         className={
-                          selectedYear === year
+                          selectedYears.length === availableYears.length
                             ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
                             : ""
                         }
                       >
-                        {year}
+                        Todos
                       </Button>
-                    ))}
+                      {availableYears.map((year) => (
+                        <Button
+                          key={year}
+                          variant={selectedYears.includes(year) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleYear(year)}
+                          className={
+                            selectedYears.includes(year)
+                              ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
+                              : ""
+                          }
+                        >
+                          {year}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pl-0 sm:pl-4 sm:border-l border-border/50">
+                    <Button
+                      variant={isCompareMode ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => {
+                        setIsCompareMode(!isCompareMode);
+                        if (isCompareMode && selectedYears.length > 1) {
+                          setSelectedYears([selectedYears[0]]);
+                        }
+                      }}
+                      className="text-xs"
+                    >
+                      {isCompareMode ? "Modo Comparación: ON" : "Comparar Años"}
+                    </Button>
                   </div>
                 </div>
               )}
 
-              <DailyPatternsChart services={filteredServicesByYear} selectedYear={selectedYear} />
+              <DailyPatternsChart services={filteredServicesByYear} selectedYears={selectedYears} />
             </div>
           </TabsContent>
 

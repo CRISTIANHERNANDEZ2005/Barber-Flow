@@ -34,12 +34,12 @@ interface Service {
 
 interface BusinessInsightsProps {
   services: Service[];
-  selectedYear?: number;
+  selectedYears?: number[];
   selectedMonth?: number;
   period?: "week" | "month" | "year";
 }
 
-const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "year" }: BusinessInsightsProps) => {
+const BusinessInsights = ({ services, selectedYears = [], selectedMonth, period = "year" }: BusinessInsightsProps) => {
   const insights = useMemo(() => {
     if (services.length === 0) {
       return {
@@ -51,52 +51,47 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
     }
 
     const now = new Date();
-    const currentYear = selectedYear || now.getFullYear();
+    // Use the most recent selected year as "current" context, or current year
+    const primaryYear = selectedYears.length > 0 ? Math.max(...selectedYears) : now.getFullYear();
 
     // 1. Filter services for the SELECTED period
     let relevantServices: Service[] = [];
-    let startDate: Date;
-    let endDate: Date;
     let daysInPeriod: number;
 
+    // Filter services based on selected years first
+    const servicesInSelectedYears = services.filter(service => {
+      const year = new Date(service.created_at).getFullYear();
+      return selectedYears.length === 0 || selectedYears.includes(year);
+    });
+
     if (period === "week") {
-      // Last 7 days
-      endDate = new Date();
-      startDate = new Date();
-      startDate.setDate(endDate.getDate() - 7);
+      // Last 7 days from today (only for selected years)
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+
+      relevantServices = servicesInSelectedYears.filter(service => {
+        const serviceDate = new Date(service.created_at);
+        return serviceDate >= weekAgo && serviceDate <= now;
+      });
       daysInPeriod = 7;
-
-      relevantServices = services.filter(service => {
-        const date = new Date(service.created_at);
-        return date >= startDate && date <= endDate;
-      });
     } else if (period === "month") {
-      // Selected month
-      const month = selectedMonth !== undefined ? selectedMonth : now.getMonth();
-      startDate = new Date(currentYear, month, 1);
-      endDate = new Date(currentYear, month + 1, 0); // Last day of month
-      daysInPeriod = endDate.getDate();
+      // Selected month in the selected years
+      // If multiple years are selected, we aggregate the month across years?
+      // Or do we only show the month for the primary year?
+      // "Daily Patterns" aggregates. Let's aggregate here too for consistency.
 
-      relevantServices = services.filter(service => {
-        const date = new Date(service.created_at);
-        return date >= startDate && date <= endDate; // Simple range check handles year/month implicitly
+      relevantServices = servicesInSelectedYears.filter(service => {
+        const serviceDate = new Date(service.created_at);
+        return selectedMonth !== undefined && serviceDate.getMonth() === selectedMonth;
       });
+
+      // Estimate days in period. If multiple years, it's daysInMonth * numYears
+      const daysInMonth = new Date(primaryYear, (selectedMonth || 0) + 1, 0).getDate();
+      daysInPeriod = daysInMonth * (selectedYears.length || 1);
     } else {
-      // Selected year (default)
-      startDate = new Date(currentYear, 0, 1);
-      endDate = new Date(currentYear, 11, 31);
-
-      // For current year, we only count days passed so far for averages
-      if (currentYear === now.getFullYear()) {
-        daysInPeriod = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      } else {
-        daysInPeriod = 365; // Simplified
-      }
-
-      relevantServices = services.filter(service => {
-        const date = new Date(service.created_at);
-        return date.getFullYear() === currentYear;
-      });
+      // Selected years (Annual view)
+      relevantServices = servicesInSelectedYears;
+      daysInPeriod = 365 * (selectedYears.length || 1);
     }
 
     if (relevantServices.length === 0) {
@@ -110,7 +105,7 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
 
     // 2. Calculate Metrics for the SELECTED period
     const totalRevenue = relevantServices.reduce((sum, s) => sum + s.price, 0);
-    const dailyAverageRevenue = totalRevenue / daysInPeriod;
+    const dailyAverageRevenue = totalRevenue / (daysInPeriod || 1);
     const avgPrice = totalRevenue / relevantServices.length;
 
     // Análisis por día de la semana
@@ -137,7 +132,7 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
     );
 
     const mostPopularService = Object.entries(serviceTypeStats).sort(([, a], [, b]) => b - a)[0];
-    const leastPopularService = Object.entries(serviceTypeStats).sort(([, a], [, b]) => a - b)[0];
+    // const leastPopularService = Object.entries(serviceTypeStats).sort(([, a], [, b]) => a - b)[0];
 
     // Precios
     const prices = relevantServices.map((s) => s.price);
@@ -151,8 +146,6 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
     // Análisis de clientes (Fidelidad en este periodo)
     const uniqueClients = new Set(relevantServices.map((s) => s.client_id)).size;
 
-    // Para fidelidad real, necesitamos ver si estos clientes han venido ANTES de este periodo
-    // O si han venido múltiples veces DENTRO de este periodo.
     // Simplificación: Clientes recurrentes DENTRO del periodo seleccionado.
     const clientVisitsInPeriod = relevantServices.reduce(
       (acc, service) => {
@@ -181,7 +174,7 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
       });
     }
 
-    if (worstDay.count < (relevantServices.length / daysInPeriod) * 0.5 && relevantServices.length > 10) {
+    if (worstDay.count < (relevantServices.length / 7) * 0.5 && relevantServices.length > 10) {
       opportunities.push({
         type: "marketing",
         priority: "medium",
@@ -213,9 +206,8 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
       });
     }
 
-    // Alertas de tendencia (Comparar con periodo anterior si es posible, o usar métricas simples)
-    // Si el promedio diario es muy bajo comparado con lo "esperado" (ej. un umbral fijo o heurística)
-    if (dailyAverageRevenue < 20 && relevantServices.length > 0) { // Ejemplo arbitrario
+    // Alertas de tendencia
+    if (dailyAverageRevenue < 20 && relevantServices.length > 0) {
       warnings.push({
         type: "trend",
         priority: "high",
@@ -236,12 +228,12 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
         loyaltyRate: loyaltyRate.toFixed(1),
         uniqueClients,
         mostPopularService: mostPopularService?.[0] || "N/A",
-        totalRevenue: totalRevenue, // Changed from weekly/monthly specific
+        totalRevenue: totalRevenue,
         dailyAverage: dailyAverageRevenue.toFixed(2),
         periodLabel: period === 'week' ? 'últimos 7 días' : period === 'month' ? 'este mes' : 'este año'
       },
     };
-  }, [services, selectedYear, selectedMonth, period]);
+  }, [services, selectedYears, selectedMonth, period]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
