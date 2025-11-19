@@ -34,9 +34,10 @@ interface Service {
 
 interface BusinessInsightsProps {
   services: Service[];
+  selectedYear?: number;
 }
 
-const BusinessInsights = ({ services }: BusinessInsightsProps) => {
+const BusinessInsights = ({ services, selectedYear }: BusinessInsightsProps) => {
   const insights = useMemo(() => {
     if (services.length === 0) {
       return {

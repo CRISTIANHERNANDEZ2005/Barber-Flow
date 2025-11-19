@@ -55,6 +55,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
@@ -110,7 +111,13 @@ const Index = () => {
     const today = new Date();
     const todayStart = new Date(today.setHours(0, 0, 0, 0));
 
-    const todayServices = services.filter(
+    // Filter services by selected year
+    const yearServices = services.filter((s) => {
+      const serviceYear = new Date(s.created_at).getFullYear();
+      return serviceYear === selectedYear;
+    });
+
+    const todayServices = yearServices.filter(
       (s) => new Date(s.created_at) >= todayStart,
     );
 
@@ -118,15 +125,16 @@ const Index = () => {
     thisMonth.setDate(1);
     thisMonth.setHours(0, 0, 0, 0);
 
-    const monthServices = services.filter(
+    const monthServices = yearServices.filter(
       (s) => new Date(s.created_at) >= thisMonth,
     );
 
     return {
-      totalServices: services.length,
+      totalServices: yearServices.length,
       todayRevenue: todayServices.reduce((sum, s) => sum + Number(s.price), 0),
       monthRevenue: monthServices.reduce((sum, s) => sum + Number(s.price), 0),
       todayServices: todayServices.length,
+      yearRevenue: yearServices.reduce((sum, s) => sum + Number(s.price), 0),
     };
   };
 
@@ -161,6 +169,20 @@ const Index = () => {
   }, [services, searchTerm, dateFilter]);
 
   const stats = calculateStats();
+
+  // Get available years from services
+  const availableYears = useMemo(() => {
+    const years = new Set(services.map(s => new Date(s.created_at).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [services]);
+
+  // Filter services by selected year for charts
+  const filteredServicesByYear = useMemo(() => {
+    return services.filter((s) => {
+      const serviceYear = new Date(s.created_at).getFullYear();
+      return serviceYear === selectedYear;
+    });
+  }, [services, selectedYear]);
 
   const handleEditService = (service: Service) => {
     setEditingService(service);
@@ -251,12 +273,36 @@ const Index = () => {
 
           {/* Dashboard/Statistics Tab */}
           <TabsContent value="dashboard" className="space-y-8">
+            {/* Year Filter Selector */}
+            {availableYears.length > 0 && (
+              <div className="flex justify-center items-center gap-4 mb-6">
+                <span className="text-sm font-medium text-muted-foreground">Año:</span>
+                <div className="flex gap-2 flex-wrap justify-center">
+                  {availableYears.map((year) => (
+                    <Button
+                      key={year}
+                      variant={selectedYear === year ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedYear(year)}
+                      className={
+                        selectedYear === year
+                          ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
+                          : ""
+                      }
+                    >
+                      {year}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard
                 title="Servicios Totales"
                 value={stats.totalServices}
-                subtitle="Registros históricos"
+                subtitle={`En ${selectedYear}`}
                 icon="scissors"
               />
               <StatsCard
@@ -272,15 +318,15 @@ const Index = () => {
                 icon="trending"
               />
               <StatsCard
-                title="Promedio/Servicio"
-                value={`$${services.length > 0 ? (stats.monthRevenue / services.filter((s) => new Date(s.created_at) >= new Date(new Date().setDate(1))).length || 0).toFixed(2) : "0.00"}`}
-                subtitle="Este mes"
+                title="Ingresos Año"
+                value={`$${stats.yearRevenue.toFixed(2)}`}
+                subtitle={`Total ${selectedYear}`}
                 icon="chart"
               />
             </div>
 
             {/* Chart Section */}
-            <RevenueChart services={services} />
+            <RevenueChart services={filteredServicesByYear} selectedYear={selectedYear} />
           </TabsContent>
 
           {/* Daily Patterns Analysis Tab */}
@@ -294,7 +340,32 @@ const Index = () => {
                   Descubre qué días y horas son más productivos para tu barbería
                 </p>
               </div>
-              <DailyPatternsChart services={services} />
+
+              {/* Year Filter Selector for Patterns */}
+              {availableYears.length > 0 && (
+                <div className="flex justify-center items-center gap-4 mb-6">
+                  <span className="text-sm font-medium text-muted-foreground">Año:</span>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    {availableYears.map((year) => (
+                      <Button
+                        key={year}
+                        variant={selectedYear === year ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedYear(year)}
+                        className={
+                          selectedYear === year
+                            ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
+                            : ""
+                        }
+                      >
+                        {year}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <DailyPatternsChart services={filteredServicesByYear} selectedYear={selectedYear} />
             </div>
           </TabsContent>
 

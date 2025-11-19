@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -11,14 +11,25 @@ interface Service {
 
 interface RevenueChartProps {
   services: Service[];
+  selectedYear?: number;
 }
 
 type Period = "week" | "month" | "year";
 type ChartType = "bar" | "pie";
 
-const RevenueChart = ({ services }: RevenueChartProps) => {
+const RevenueChart = ({ services, selectedYear }: RevenueChartProps) => {
   const [period, setPeriod] = useState<Period>("week");
   const [chartType, setChartType] = useState<ChartType>("bar");
+
+  const currentYear = new Date().getFullYear();
+  const isCurrentYear = !selectedYear || selectedYear === currentYear;
+
+  // Auto-switch to year view for past years
+  useEffect(() => {
+    if (!isCurrentYear && period !== "year") {
+      setPeriod("year");
+    }
+  }, [selectedYear, isCurrentYear, period]);
 
   const CHART_COLORS = [
     "hsl(210, 100%, 60%)",  // Azul vibrante
@@ -70,8 +81,12 @@ const RevenueChart = ({ services }: RevenueChartProps) => {
     let days: Date[] = [];
     let format: Intl.DateTimeFormatOptions = {};
 
+    const currentYear = new Date().getFullYear();
+    const isCurrentYear = !selectedYear || selectedYear === currentYear;
+
     switch (period) {
       case "week":
+        // Only show for current year
         days = Array.from({ length: 7 }, (_, i) => {
           const date = new Date();
           date.setDate(date.getDate() - (6 - i));
@@ -82,6 +97,7 @@ const RevenueChart = ({ services }: RevenueChartProps) => {
         break;
 
       case "month":
+        // Only show for current year
         days = Array.from({ length: 30 }, (_, i) => {
           const date = new Date();
           date.setDate(date.getDate() - (29 - i));
@@ -92,10 +108,9 @@ const RevenueChart = ({ services }: RevenueChartProps) => {
         break;
 
       case "year":
+        // Show all 12 months of the selected year
         days = Array.from({ length: 12 }, (_, i) => {
-          const date = new Date();
-          date.setMonth(date.getMonth() - (11 - i));
-          date.setDate(1);
+          const date = new Date(selectedYear || currentYear, i, 1);
           date.setHours(0, 0, 0, 0);
           return date;
         });
@@ -131,13 +146,17 @@ const RevenueChart = ({ services }: RevenueChartProps) => {
   const totalRevenue = pieChartData.reduce((sum, item) => sum + item.ingresos, 0);
 
   const getPeriodTitle = () => {
+    const currentYear = new Date().getFullYear();
+    const isCurrentYear = !selectedYear || selectedYear === currentYear;
+    const yearSuffix = selectedYear ? ` (${selectedYear})` : '';
+    
     switch (period) {
       case "week":
-        return "Últimos 7 Días";
+        return `Últimos 7 Días${yearSuffix}`;
       case "month":
-        return "Últimos 30 Días";
+        return `Últimos 30 Días${yearSuffix}`;
       case "year":
-        return "Últimos 12 Meses";
+        return `12 Meses${yearSuffix}`;
     }
   };
 
@@ -164,32 +183,45 @@ const RevenueChart = ({ services }: RevenueChartProps) => {
               Circular
             </Button>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant={period === "week" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriod("week")}
-              className={period === "week" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
-            >
-              Semana
-            </Button>
-            <Button
-              variant={period === "month" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriod("month")}
-              className={period === "month" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
-            >
-              Mes
-            </Button>
-            <Button
-              variant={period === "year" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriod("year")}
-              className={period === "year" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
-            >
-              Año
-            </Button>
-          </div>
+          {isCurrentYear && (
+            <div className="flex gap-2">
+              <Button
+                variant={period === "week" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPeriod("week")}
+                className={period === "week" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+              >
+                Semana
+              </Button>
+              <Button
+                variant={period === "month" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPeriod("month")}
+                className={period === "month" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+              >
+                Mes
+              </Button>
+              <Button
+                variant={period === "year" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPeriod("year")}
+                className={period === "year" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+              >
+                Año
+              </Button>
+            </div>
+          )}
+          {!isCurrentYear && (
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-gradient-to-r from-cyber-glow to-cyber-secondary cursor-default"
+              >
+                Vista Anual
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       <ResponsiveContainer width="100%" height={400}>

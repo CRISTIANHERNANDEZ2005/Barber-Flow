@@ -39,9 +39,10 @@ interface Service {
 
 interface DailyPatternsChartProps {
   services: Service[];
+  selectedYear?: number;
 }
 
-const DailyPatternsChart = ({ services }: DailyPatternsChartProps) => {
+const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps) => {
   const chartData = useMemo(() => {
     // Análisis por día de la semana
     const dayNames = [
@@ -502,9 +503,9 @@ const DailyPatternsChart = ({ services }: DailyPatternsChartProps) => {
       <div className="mt-8">
         <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
           <TrendingUp className="h-6 w-6 text-cyber-glow" />
-          Insights y Recomendaciones Personalizadas
+          Insights y Recomendaciones Personalizadas{selectedYear ? ` - ${selectedYear}` : ''}
         </h3>
-        <BusinessInsights services={services} />
+        <BusinessInsights services={services} selectedYear={selectedYear} />
       </div>
     </div>
   );
