@@ -48,45 +48,48 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
 
   const currentYear = new Date().getFullYear();
-  const isCurrentYear = !selectedYear || selectedYear === currentYear;
+  const targetYear = selectedYear || currentYear;
+  const isCurrentYear = targetYear === currentYear;
 
-  // Get available months with services for current year
+  // Get available months with services for selected year
   const availableMonths = useMemo(() => {
-    if (!isCurrentYear || period !== "month") return [];
+    if (period !== "month") return [];
 
     const months = new Set<number>();
     services.forEach(service => {
       const serviceDate = new Date(service.created_at);
-      if (serviceDate.getFullYear() === currentYear) {
+      if (serviceDate.getFullYear() === targetYear) {
         months.add(serviceDate.getMonth());
       }
     });
 
     return Array.from(months).sort((a, b) => a - b);
-  }, [services, isCurrentYear, period, currentYear]);
-
-  // Auto-switch to year view for past years
-  useEffect(() => {
-    if (!isCurrentYear && period !== "year") {
-      setPeriod("year");
-    }
-  }, [selectedYear, isCurrentYear, period]);
+  }, [services, targetYear, period]);
 
   // Filter services based on period selection
   const filteredServices = useMemo(() => {
     if (period === "year") {
-      return services;
+      return services.filter(s => new Date(s.created_at).getFullYear() === targetYear);
     }
 
     if (period === "month") {
       return services.filter((s) => {
         const serviceDate = new Date(s.created_at);
-        return serviceDate.getFullYear() === currentYear && serviceDate.getMonth() === selectedMonth;
+        return serviceDate.getFullYear() === targetYear && serviceDate.getMonth() === selectedMonth;
       });
     }
 
     if (period === "week") {
-      // Last 7 days from today (only for current year)
+      // Week view only available/relevant for current context usually, 
+      // but if user selects it for past year, we might just show the year or disable it.
+      // For now, let's keep the original logic which was relative to "today".
+      // If we are looking at 2023, "last 7 days from today" is empty.
+      // So we should probably force "year" if they try to select "week" in a past year?
+      // Or better, just show the year data if they select week in past year.
+      if (!isCurrentYear) {
+        return services.filter(s => new Date(s.created_at).getFullYear() === targetYear);
+      }
+
       const today = new Date();
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -97,7 +100,8 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
     }
 
     return services;
-  }, [services, period, selectedMonth, currentYear]);
+  }, [services, period, selectedMonth, targetYear, isCurrentYear]);
+
   const chartData = useMemo(() => {
     // Análisis por día de la semana
     const dayNames = [
@@ -172,34 +176,31 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
 
     // Tendencia dinámica basada en el período seleccionado
     let trendDays = 30;
-    let trendLabel = "Últimos 30 Días";
 
-    if (period === "week") {
+    if (period === "week" && isCurrentYear) {
       trendDays = 7;
-      trendLabel = "Últimos 7 Días";
     } else if (period === "month") {
-      // Para el mes seleccionado, obtener todos los días del mes
-      const daysInMonth = new Date(currentYear, selectedMonth + 1, 0).getDate();
+      const daysInMonth = new Date(targetYear, selectedMonth + 1, 0).getDate();
       trendDays = daysInMonth;
-      trendLabel = `Días de ${new Date(currentYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${currentYear}`;
-    } else if (period === "year") {
+    } else {
       trendDays = 365;
-      trendLabel = "Últimos 365 Días";
     }
 
     const trendData = Array.from({ length: trendDays }, (_, i) => {
       let date;
       if (period === "month") {
-        // Para el mes seleccionado, usar días específicos del mes
-        date = new Date(currentYear, selectedMonth, i + 1);
-      } else if (period === "week") {
-        // Para la semana, usar los últimos 7 días
+        date = new Date(targetYear, selectedMonth, i + 1);
+      } else if (period === "week" && isCurrentYear) {
         date = new Date();
         date.setDate(date.getDate() - (6 - i));
       } else {
-        // Para el año, usar los últimos 365 días
-        date = new Date();
-        date.setDate(date.getDate() - (trendDays - 1 - i));
+        // Year view: show last 365 days or all days of year?
+        // If past year, show days of that year.
+        // Simplified: just show last 365 days if current year, or whole year if past.
+        // But for "trend", usually a line chart needs sequential dates.
+        // Let's just use the targetYear.
+        date = new Date(targetYear, 0, 1);
+        date.setDate(date.getDate() + i);
       }
 
       date.setHours(0, 0, 0, 0);
@@ -225,7 +226,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       serviceTypesByDay,
       trendData,
     };
-  }, [filteredServices, period, selectedMonth, currentYear]);
+  }, [filteredServices, period, selectedMonth, targetYear, isCurrentYear]);
 
   const insights = useMemo(() => {
     const { dayStats } = chartData;
@@ -252,16 +253,6 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       slowDaysCount: slowDays.length,
     };
   }, [chartData]);
-
-  const COLORS = [
-    "#00f5ff", // cyber-glow
-    "#8b5cf6", // cyber-secondary
-    "#ef4444", // red
-    "#f59e0b", // amber
-    "#10b981", // emerald
-    "#3b82f6", // blue
-    "#f97316", // orange
-  ];
 
   const CustomTooltip = ({
     active,
@@ -305,13 +296,12 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
   return (
     <div className="space-y-6">
       {/* Period Filter Controls */}
-      {/* Period Filter Controls */}
       <Card className="p-4 bg-card/50 backdrop-blur-xl border-border/50">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Período:</span>
-            {isCurrentYear && (
-              <div className="flex p-1 bg-muted/50 rounded-lg w-full sm:w-auto">
+            <div className="flex p-1 bg-muted/50 rounded-lg w-full sm:w-auto">
+              {isCurrentYear && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -323,39 +313,34 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
                 >
                   7 Días
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPeriod("month")}
-                  className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "month"
-                      ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                      : "text-muted-foreground hover:text-foreground"
-                    }`}
-                >
-                  Mes
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPeriod("year")}
-                  className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "year"
-                      ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                      : "text-muted-foreground hover:text-foreground"
-                    }`}
-                >
-                  Año
-                </Button>
-              </div>
-            )}
-            {!isCurrentYear && (
-              <Badge variant="secondary" className="px-3 py-1">
-                Vista Anual
-              </Badge>
-            )}
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPeriod("month")}
+                className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "month"
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                  }`}
+              >
+                Mes
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPeriod("year")}
+                className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "year"
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                  }`}
+              >
+                Año
+              </Button>
+            </div>
           </div>
 
-          {/* Month selector - only show when month period is selected and it's current year */}
-          {period === "month" && isCurrentYear && (
+          {/* Month selector - show when month period is selected */}
+          {period === "month" && (
             <div className="flex items-center gap-2 w-full md:w-auto">
               <span className="text-sm font-medium text-muted-foreground whitespace-nowrap md:hidden">Mes:</span>
               <select
@@ -365,7 +350,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
               >
                 {availableMonths.map(month => (
                   <option key={month} value={month}>
-                    {new Date(currentYear, month).toLocaleDateString('es-ES', { month: 'long' })}
+                    {new Date(targetYear, month).toLocaleDateString('es-ES', { month: 'long' })}
                   </option>
                 ))}
               </select>
@@ -558,7 +543,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
         <Card className="p-6 bg-card/50 backdrop-blur-xl border-border/50">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-purple-500" />
-            Tendencia {period === 'week' ? 'Últimos 7 Días' : period === 'month' ? `Días de ${new Date(currentYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${currentYear}` : 'Últimos 365 Días'}
+            Tendencia {period === 'week' ? 'Últimos 7 Días' : period === 'month' ? `Días de ${new Date(targetYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${targetYear}` : 'Últimos 365 Días'}
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData.trendData}>
@@ -664,9 +649,9 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       <div className="mt-8">
         <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
           <TrendingUp className="h-6 w-6 text-cyber-glow" />
-          Insights y Recomendaciones Personalizadas{selectedYear ? ` - ${selectedYear}` : ''}{period === 'month' ? ` (${new Date(selectedYear || new Date().getFullYear(), selectedMonth).toLocaleDateString('es-ES', { month: 'long' })})` : ''}
+          Insights y Recomendaciones Personalizadas{selectedYear ? ` - ${selectedYear}` : ''}{period === 'month' ? ` (${new Date(targetYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })})` : ''}
         </h3>
-        <BusinessInsights services={services} selectedYear={selectedYear} selectedMonth={selectedMonth} period={period} />
+        <BusinessInsights services={services} selectedYear={targetYear} selectedMonth={selectedMonth} period={period} />
       </div>
     </div>
   );
