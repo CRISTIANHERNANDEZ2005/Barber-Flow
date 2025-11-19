@@ -50,25 +50,56 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
       };
     }
 
-    // Filter services based on selected period, year, and month
-    const filteredServices = services.filter((service) => {
-      const serviceDate = new Date(service.created_at);
-      
-      // If no year selected, use all services
-      if (!selectedYear) return true;
-      
-      // If year doesn't match, exclude service
-      if (serviceDate.getFullYear() !== selectedYear) return false;
-      
-      // If period is month and month doesn't match, exclude service
-      if (period === "month" && selectedMonth !== undefined && serviceDate.getMonth() !== selectedMonth) {
-        return false;
-      }
-      
-      return true;
-    });
+    const now = new Date();
+    const currentYear = selectedYear || now.getFullYear();
 
-    if (filteredServices.length === 0) {
+    // 1. Filter services for the SELECTED period
+    let relevantServices: Service[] = [];
+    let startDate: Date;
+    let endDate: Date;
+    let daysInPeriod: number;
+
+    if (period === "week") {
+      // Last 7 days
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(endDate.getDate() - 7);
+      daysInPeriod = 7;
+
+      relevantServices = services.filter(service => {
+        const date = new Date(service.created_at);
+        return date >= startDate && date <= endDate;
+      });
+    } else if (period === "month") {
+      // Selected month
+      const month = selectedMonth !== undefined ? selectedMonth : now.getMonth();
+      startDate = new Date(currentYear, month, 1);
+      endDate = new Date(currentYear, month + 1, 0); // Last day of month
+      daysInPeriod = endDate.getDate();
+
+      relevantServices = services.filter(service => {
+        const date = new Date(service.created_at);
+        return date >= startDate && date <= endDate; // Simple range check handles year/month implicitly
+      });
+    } else {
+      // Selected year (default)
+      startDate = new Date(currentYear, 0, 1);
+      endDate = new Date(currentYear, 11, 31);
+
+      // For current year, we only count days passed so far for averages
+      if (currentYear === now.getFullYear()) {
+        daysInPeriod = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      } else {
+        daysInPeriod = 365; // Simplified
+      }
+
+      relevantServices = services.filter(service => {
+        const date = new Date(service.created_at);
+        return date.getFullYear() === currentYear;
+      });
+    }
+
+    if (relevantServices.length === 0) {
       return {
         recommendations: [],
         warnings: [],
@@ -77,52 +108,13 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
       };
     }
 
-    const now = new Date();
-    const currentYear = selectedYear || now.getFullYear();
-    
-    // For period-based filtering (same logic as DailyPatternsChart)
-    let relevantServices = filteredServices;
-    
-    if (period === "week") {
-      // Last 7 days from today (only for selected year)
-      const weekAgo = new Date(now);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      relevantServices = filteredServices.filter(service => {
-        const serviceDate = new Date(service.created_at);
-        return serviceDate >= weekAgo && serviceDate <= now;
-      });
-    } else if (period === "month") {
-      // All services in the selected month and year
-      relevantServices = filteredServices;
-    } else {
-      // All services in the selected year
-      relevantServices = filteredServices;
-    }
-
-    const last30Days = relevantServices.filter((service) => {
-      const serviceDate = new Date(service.created_at);
-      const daysDiff =
-        (now.getTime() - serviceDate.getTime()) / (1000 * 60 * 60 * 24);
-      return daysDiff <= 30;
-    });
-
-    const last7Days = relevantServices.filter((service) => {
-      const serviceDate = new Date(service.created_at);
-      const daysDiff =
-        (now.getTime() - serviceDate.getTime()) / (1000 * 60 * 60 * 24);
-      return daysDiff <= 7;
-    });
+    // 2. Calculate Metrics for the SELECTED period
+    const totalRevenue = relevantServices.reduce((sum, s) => sum + s.price, 0);
+    const dailyAverageRevenue = totalRevenue / daysInPeriod;
+    const avgPrice = totalRevenue / relevantServices.length;
 
     // Análisis por día de la semana
-    const dayNames = [
-      "Domingo",
-      "Lunes",
-      "Martes",
-      "Miércoles",
-      "Jueves",
-      "Viernes",
-      "Sábado",
-    ];
+    const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     const dayStats = dayNames.map((day, index) => {
       const dayServices = relevantServices.filter((service) => {
         const date = new Date(service.created_at);
@@ -144,54 +136,34 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
       {} as Record<string, number>,
     );
 
-    const mostPopularService = Object.entries(serviceTypeStats).sort(
-      ([, a], [, b]) => b - a,
-    )[0];
+    const mostPopularService = Object.entries(serviceTypeStats).sort(([, a], [, b]) => b - a)[0];
+    const leastPopularService = Object.entries(serviceTypeStats).sort(([, a], [, b]) => a - b)[0];
 
-    const leastPopularService = Object.entries(serviceTypeStats).sort(
-      ([, a], [, b]) => a - b,
-    )[0];
-
-    // Análisis de precios
+    // Precios
     const prices = relevantServices.map((s) => s.price);
-    const avgPrice =
-      prices.length > 0 ? prices.reduce((sum, price) => sum + price, 0) / prices.length : 0;
     const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
     const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
 
     // Días más y menos productivos
-    const bestDay = dayStats.reduce((max, day) =>
-      day.count > max.count ? day : max,
-    );
-    const worstDay = dayStats.reduce((min, day) =>
-      day.count < min.count ? day : min,
-    );
+    const bestDay = dayStats.reduce((max, day) => (day.count > max.count ? day : max));
+    const worstDay = dayStats.reduce((min, day) => (day.count < min.count ? day : min));
 
-    // Análisis de tendencias
-    const weeklyRevenue = last7Days.reduce((sum, s) => sum + s.price, 0);
-    const monthlyRevenue = last30Days.reduce((sum, s) => sum + s.price, 0);
-    const dailyAverage = last7Days.length > 0 ? weeklyRevenue / 7 : 0;
-    const monthlyAverage = last30Days.length > 0 ? monthlyRevenue / 30 : 0;
-
-    // Análisis de clientes
+    // Análisis de clientes (Fidelidad en este periodo)
     const uniqueClients = new Set(relevantServices.map((s) => s.client_id)).size;
-    const repeatClients = relevantServices.reduce(
+
+    // Para fidelidad real, necesitamos ver si estos clientes han venido ANTES de este periodo
+    // O si han venido múltiples veces DENTRO de este periodo.
+    // Simplificación: Clientes recurrentes DENTRO del periodo seleccionado.
+    const clientVisitsInPeriod = relevantServices.reduce(
       (acc, service) => {
-        if (service.client) {
-          const clientName =
-            `${service.client.first_name} ${service.client.last_name || ""}`.trim();
-          acc[clientName] = (acc[clientName] || 0) + 1;
-        }
+        acc[service.client_id] = (acc[service.client_id] || 0) + 1;
         return acc;
       },
       {} as Record<string, number>,
     );
 
-    const loyalClients = Object.entries(repeatClients).filter(
-      ([, count]) => count > 1,
-    ).length;
-
-    const loyaltyRate = (loyalClients / uniqueClients) * 100;
+    const repeatClientsInPeriod = Object.values(clientVisitsInPeriod).filter(count => count > 1).length;
+    const loyaltyRate = uniqueClients > 0 ? (repeatClientsInPeriod / uniqueClients) * 100 : 0;
 
     // Generar recomendaciones
     const recommendations = [];
@@ -200,33 +172,21 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
 
     // Recomendaciones basadas en días
     if (bestDay.count > worstDay.count * 2) {
-      let recommendationText = `${bestDay.day} es tu día más productivo (${bestDay.count} servicios).`;
-      
-      if (period === "month") {
-        recommendationText += ` En ${new Date(selectedYear || now.getFullYear(), selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${selectedYear || now.getFullYear()}.`;
-      } else if (period === "week") {
-        recommendationText += " En los últimos 7 días. ";
-      } else {
-        recommendationText += ` En ${selectedYear || now.getFullYear()}.`;
-      }
-      
-      recommendationText += " Considera abrir más temprano o cerrar más tarde este día.";
-      
       recommendations.push({
         type: "schedule",
         priority: "high",
         title: "Optimizar horarios",
-        description: recommendationText,
+        description: `${bestDay.day} es tu día más fuerte (${bestDay.count} servicios). Considera ampliar horarios.`,
         icon: Clock,
       });
     }
 
-    if (worstDay.count < 3 && relevantServices.length > 20) {
+    if (worstDay.count < (relevantServices.length / daysInPeriod) * 0.5 && relevantServices.length > 10) {
       opportunities.push({
         type: "marketing",
         priority: "medium",
-        title: `Promoción para ${worstDay.day}`,
-        description: `${worstDay.day} es tu día más lento. Considera ofertas especiales para atraer más clientes.`,
+        title: `Impulsar el ${worstDay.day}`,
+        description: `${worstDay.day} tiene baja actividad. Crea una promoción especial para este día.`,
         icon: Target,
       });
     }
@@ -236,62 +196,33 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
       opportunities.push({
         type: "service",
         priority: "medium",
-        title: "Especialización",
-        description: `${mostPopularService[0]} es muy popular (${mostPopularService[1]} veces). Considera especializarte más en este servicio.`,
+        title: "Potenciar Estrella",
+        description: `${mostPopularService[0]} es el 40%+ de tus ventas. ¿Puedes ofrecer una versión premium?`,
         icon: Users,
       });
     }
 
-    if (leastPopularService && leastPopularService[1] < relevantServices.length * 0.1) {
-      warnings.push({
-        type: "service",
-        priority: "low",
-        title: "Servicio poco demandado",
-        description: `${leastPopularService[0]} tiene poca demanda. Evalúa si mantenerlo o promocionarlo mejor.`,
-        icon: AlertTriangle,
-      });
-    }
-
-    // Recomendaciones basadas en precios
-    if (maxPrice - minPrice > avgPrice) {
+    // Recomendaciones de precios
+    if (maxPrice - minPrice > avgPrice && prices.length > 10) {
       opportunities.push({
         type: "pricing",
         priority: "medium",
-        title: "Oportunidad de precios",
-        description: `Hay gran variación en tus precios ($${minPrice} - $${maxPrice}). Considera estandarizar o crear paquetes.`,
+        title: "Estandarizar Precios",
+        description: `Gran variación de precios ($${minPrice} - $${maxPrice}). Simplificar podría atraer más clientes.`,
         icon: DollarSign,
       });
     }
 
-    // Recomendaciones basadas en fidelidad
-    if (loyaltyRate < 30) {
-      recommendations.push({
-        type: "loyalty",
-        priority: "high",
-        title: "Programa de fidelidad",
-        description: `Solo ${loyaltyRate.toFixed(1)}% de tus clientes repiten. Implementa un programa de fidelidad.`,
-        icon: Users,
-      });
-    } else if (loyaltyRate > 60) {
-      opportunities.push({
-        type: "loyalty",
-        priority: "low",
-        title: "Excelente fidelidad",
-        description: `${loyaltyRate.toFixed(1)}% de tus clientes son fieles. ¡Sigue así! Considera pedirles referencias.`,
-        icon: TrendingUp,
-      });
-    }
-
-    // Análisis de tendencias recientes
-    if (last7Days.length < last30Days.length / 4) {
+    // Alertas de tendencia (Comparar con periodo anterior si es posible, o usar métricas simples)
+    // Si el promedio diario es muy bajo comparado con lo "esperado" (ej. un umbral fijo o heurística)
+    if (dailyAverageRevenue < 20 && relevantServices.length > 0) { // Ejemplo arbitrario
       warnings.push({
         type: "trend",
         priority: "high",
-        title: "Disminución reciente",
-        description:
-          "Has tenido menos servicios en la última semana. Revisa tu estrategia de marketing.",
-        icon: TrendingDown,
-      });
+        title: "Ingresos Bajos",
+        description: "El promedio diario de ingresos es bajo en este periodo. Revisa tu estrategia de precios.",
+        icon: TrendingDown
+      })
     }
 
     return {
@@ -305,12 +236,12 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
         loyaltyRate: loyaltyRate.toFixed(1),
         uniqueClients,
         mostPopularService: mostPopularService?.[0] || "N/A",
-        weeklyRevenue,
-        monthlyRevenue,
-        dailyAverage: dailyAverage.toFixed(2),
+        totalRevenue: totalRevenue, // Changed from weekly/monthly specific
+        dailyAverage: dailyAverageRevenue.toFixed(2),
+        periodLabel: period === 'week' ? 'últimos 7 días' : period === 'month' ? 'este mes' : 'este año'
       },
     };
-  }, [services]);
+  }, [services, selectedYear, selectedMonth, period]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -381,9 +312,9 @@ const BusinessInsights = ({ services, selectedYear, selectedMonth, period = "yea
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-purple-600">
-                ${insights.performance.dailyAverage}
+                ${insights.performance.totalRevenue}
               </p>
-              <p className="text-xs text-muted-foreground">Promedio diario</p>
+              <p className="text-xs text-muted-foreground">Ingresos ({insights.performance.periodLabel})</p>
             </div>
           </div>
         </Card>
