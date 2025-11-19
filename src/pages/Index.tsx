@@ -110,33 +110,134 @@ const Index = () => {
   };
 
   const calculateStats = () => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
     const today = new Date();
-    const todayStart = new Date(today.setHours(0, 0, 0, 0));
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const isCurrentYearSelected = selectedYears.includes(currentYear);
+    const isSingleYearSelected = selectedYears.length === 1;
+    const isMultiYearComparison = selectedYears.length > 1;
 
-    // Filter services by selected years
-    const yearServices = services.filter((s) => {
+    // Services within selected years (period context)
+    const periodServices = services.filter((s) => {
       const serviceYear = new Date(s.created_at).getFullYear();
       return selectedYears.includes(serviceYear);
     });
 
-    const todayServices = yearServices.filter(
-      (s) => new Date(s.created_at) >= todayStart,
-    );
+    const totalServices = periodServices.length;
+    const totalRevenue = periodServices.reduce((sum, s) => sum + Number(s.price), 0);
+    const avgTicket = totalServices > 0 ? totalRevenue / totalServices : 0;
 
-    const thisMonth = new Date();
-    thisMonth.setDate(1);
-    thisMonth.setHours(0, 0, 0, 0);
-
-    const monthServices = yearServices.filter(
-      (s) => new Date(s.created_at) >= thisMonth,
+    // Unique days with activity to compute realistic daily averages
+    const uniqueDayKeys = new Set(
+      periodServices.map((s) => new Date(new Date(s.created_at).setHours(0, 0, 0, 0)).toISOString()),
     );
+    const uniqueDaysCount = uniqueDayKeys.size || 1;
+
+    const avgDailyRevenue = totalRevenue / uniqueDaysCount;
+    const avgDailyServices = totalServices / uniqueDaysCount;
+
+    // Client metrics - all within selected period
+    const uniqueClients = new Set(periodServices.map((s) => s.client_id)).size;
+    const visitsByClient: Record<string, number> = periodServices.reduce((acc, s) => {
+      acc[s.client_id] = (acc[s.client_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const repeatClients = Object.values(visitsByClient).filter((count) => count > 1).length;
+    const loyaltyRate = uniqueClients > 0 ? (repeatClients / uniqueClients) * 100 : 0;
+
+    // Top service type in selected period
+    const serviceTypeCounts: Record<string, number> = periodServices.reduce((acc, s) => {
+      acc[s.service_type] = (acc[s.service_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const topEntry = Object.entries(serviceTypeCounts).sort(([, a], [, b]) => b - a)[0];
+    const topServiceType = topEntry?.[0] || "N/A";
+    const topServiceCount = topEntry?.[1] || 0;
+
+    // Comparison metrics per year (for multi-year analysis)
+    const yearlyBreakdown = selectedYears.map(year => {
+      const yearServices = periodServices.filter(s => new Date(s.created_at).getFullYear() === year);
+      const yearRevenue = yearServices.reduce((sum, s) => sum + Number(s.price), 0);
+      const yearClients = new Set(yearServices.map(s => s.client_id)).size;
+      return {
+        year,
+        services: yearServices.length,
+        revenue: yearRevenue,
+        avgTicket: yearServices.length > 0 ? yearRevenue / yearServices.length : 0,
+        clients: yearClients,
+      };
+    });
+
+    // Growth calculation for comparison mode
+    let growthRate = 0;
+    if (isMultiYearComparison && yearlyBreakdown.length >= 2) {
+      const sortedYears = [...yearlyBreakdown].sort((a, b) => a.year - b.year);
+      const oldestYear = sortedYears[0];
+      const newestYear = sortedYears[sortedYears.length - 1];
+      if (oldestYear.revenue > 0) {
+        growthRate = ((newestYear.revenue - oldestYear.revenue) / oldestYear.revenue) * 100;
+      }
+    }
+
+    // Today & Month metrics - ONLY from current year, even in comparison mode
+    let todayRevenue = 0;
+    let todayServices = 0;
+    let monthRevenue = 0;
+    let monthServicesCount = 0;
+
+    if (isCurrentYearSelected) {
+      // Filter services strictly for TODAY in CURRENT YEAR only
+      const todayServicesList = services.filter((s) => {
+        const serviceDate = new Date(s.created_at);
+        return serviceDate.getFullYear() === currentYear && serviceDate >= todayStart;
+      });
+      todayServices = todayServicesList.length;
+      todayRevenue = todayServicesList.reduce((sum, s) => sum + Number(s.price), 0);
+
+      // Filter services strictly for THIS MONTH in CURRENT YEAR only
+      const thisMonthStart = new Date(currentYear, currentMonth, 1);
+      thisMonthStart.setHours(0, 0, 0, 0);
+      const monthList = services.filter((s) => {
+        const serviceDate = new Date(s.created_at);
+        return serviceDate >= thisMonthStart && serviceDate.getFullYear() === currentYear;
+      });
+      monthServicesCount = monthList.length;
+      monthRevenue = monthList.reduce((sum, s) => sum + Number(s.price), 0);
+    }
+
+    // Best performing year in comparison
+    const bestYear = yearlyBreakdown.length > 0 
+      ? yearlyBreakdown.reduce((best, current) => current.revenue > best.revenue ? current : best)
+      : null;
 
     return {
-      totalServices: yearServices.length,
-      todayRevenue: todayServices.reduce((sum, s) => sum + Number(s.price), 0),
-      monthRevenue: monthServices.reduce((sum, s) => sum + Number(s.price), 0),
-      todayServices: todayServices.length,
-      yearRevenue: yearServices.reduce((sum, s) => sum + Number(s.price), 0),
+      // Period totals
+      totalServices,
+      totalRevenue,
+      avgTicket,
+      uniqueClients,
+      // Derived period metrics
+      avgDailyRevenue,
+      avgDailyServices,
+      topServiceType,
+      topServiceCount,
+      loyaltyRate,
+      // Context flags
+      isCurrentYearSelected,
+      isSingleYearSelected,
+      isMultiYearComparison,
+      // Current-year scoped metrics (only from current year)
+      todayRevenue,
+      monthRevenue,
+      todayServices,
+      monthServicesCount,
+      // Comparison metrics
+      yearlyBreakdown,
+      growthRate,
+      bestYear,
     };
   };
 
@@ -326,32 +427,141 @@ const Index = () => {
               </div>
             )}
 
-            {/* Stats Grid */}
+            {/* Stats Grid - Core Period Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard
                 title="Servicios Totales"
                 value={stats.totalServices}
-                subtitle={selectedYears.length === availableYears.length ? "Histórico Total" : `En ${selectedYears.join(", ")}`}
+                subtitle={
+                  stats.isMultiYearComparison
+                    ? `Comparando ${selectedYears.length} años`
+                    : selectedYears.length === availableYears.length
+                      ? "Histórico Total"
+                      : `Año ${selectedYears.join(", ")}`
+                }
                 icon="scissors"
               />
               <StatsCard
-                title="Ingresos Hoy"
-                value={`$${stats.todayRevenue.toFixed(2)}`}
-                subtitle={`${stats.todayServices} servicios`}
-                icon="dollar"
+                title="Ingresos Totales"
+                value={`$${stats.totalRevenue.toFixed(2)}`}
+                subtitle={
+                  stats.isMultiYearComparison
+                    ? stats.growthRate !== 0
+                      ? `${stats.growthRate > 0 ? '+' : ''}${stats.growthRate.toFixed(1)}% vs inicio`
+                      : "Sin crecimiento"
+                    : `Periodo ${selectedYears.join(", ")}`
+                }
+                icon="chart"
               />
               <StatsCard
-                title="Ingresos Mes"
-                value={`$${stats.monthRevenue.toFixed(2)}`}
-                subtitle="Acumulado mensual"
+                title="Ticket Promedio"
+                value={`$${stats.avgTicket.toFixed(2)}`}
+                subtitle={
+                  stats.isMultiYearComparison && stats.bestYear
+                    ? `Mejor: ${stats.bestYear.year} ($${stats.bestYear.avgTicket.toFixed(2)})`
+                    : "Por servicio"
+                }
                 icon="trending"
               />
               <StatsCard
-                title="Ingresos Periodo"
-                value={`$${stats.yearRevenue.toFixed(2)}`}
-                subtitle={`Total ${selectedYears.length > 3 ? `${selectedYears.length} años` : selectedYears.join(", ")}`}
-                icon="chart"
+                title="Clientes Únicos"
+                value={stats.uniqueClients}
+                subtitle={
+                  stats.isMultiYearComparison && stats.bestYear
+                    ? `Mejor año: ${stats.bestYear.year} (${stats.bestYear.clients})`
+                    : "En el periodo"
+                }
+                icon="dollar"
               />
+            </div>
+
+            {/* Stats Grid - Contextual Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {stats.isCurrentYearSelected && !stats.isMultiYearComparison ? (
+                <>
+                  {/* Current year single view - show today/month metrics */}
+                  <StatsCard
+                    title="Ingresos Hoy"
+                    value={`$${stats.todayRevenue.toFixed(2)}`}
+                    subtitle={`${stats.todayServices} servicio${stats.todayServices !== 1 ? 's' : ''}`}
+                    icon="dollar"
+                  />
+                  <StatsCard
+                    title="Servicios Hoy"
+                    value={stats.todayServices}
+                    subtitle={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    icon="scissors"
+                  />
+                  <StatsCard
+                    title="Ingresos Mes Actual"
+                    value={`$${stats.monthRevenue.toFixed(2)}`}
+                    subtitle={`${stats.monthServicesCount} servicio${stats.monthServicesCount !== 1 ? 's' : ''}`}
+                    icon="trending"
+                  />
+                  <StatsCard
+                    title="Servicios Mes"
+                    value={stats.monthServicesCount}
+                    subtitle={new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                    icon="chart"
+                  />
+                </>
+              ) : stats.isCurrentYearSelected && stats.isMultiYearComparison ? (
+                <>
+                  {/* Multi-year comparison with current year - show today/month + comparison */}
+                  <StatsCard
+                    title="Hoy (Año Actual)"
+                    value={`$${stats.todayRevenue.toFixed(2)}`}
+                    subtitle={`${stats.todayServices} servicio${stats.todayServices !== 1 ? 's' : ''} hoy`}
+                    icon="dollar"
+                  />
+                  <StatsCard
+                    title="Mes Actual"
+                    value={`$${stats.monthRevenue.toFixed(2)}`}
+                    subtitle={`${stats.monthServicesCount} servicios este mes`}
+                    icon="trending"
+                  />
+                  <StatsCard
+                    title="Promedio Diario"
+                    value={`$${stats.avgDailyRevenue.toFixed(2)}`}
+                    subtitle={`${stats.avgDailyServices.toFixed(1)} servicios/día activo`}
+                    icon="scissors"
+                  />
+                  <StatsCard
+                    title="Mejor Año"
+                    value={stats.bestYear?.year.toString() || 'N/A'}
+                    subtitle={stats.bestYear ? `$${stats.bestYear.revenue.toFixed(2)} ingresos` : 'Sin datos'}
+                    icon="chart"
+                  />
+                </>
+              ) : (
+                <>
+                  {/* Past years or multi-year without current - show analytical metrics */}
+                  <StatsCard
+                    title="Promedio Diario (Ingresos)"
+                    value={`$${stats.avgDailyRevenue.toFixed(2)}`}
+                    subtitle="En días con actividad"
+                    icon="dollar"
+                  />
+                  <StatsCard
+                    title="Promedio Diario (Servicios)"
+                    value={stats.avgDailyServices.toFixed(1)}
+                    subtitle="Servicios por día activo"
+                    icon="trending"
+                  />
+                  <StatsCard
+                    title="Servicio Top"
+                    value={stats.topServiceType}
+                    subtitle={`${stats.topServiceCount} servicio${stats.topServiceCount !== 1 ? 's' : ''} realizado${stats.topServiceCount !== 1 ? 's' : ''}`}
+                    icon="scissors"
+                  />
+                  <StatsCard
+                    title="Tasa de Fidelidad"
+                    value={`${stats.loyaltyRate.toFixed(1)}%`}
+                    subtitle={`${stats.uniqueClients} cliente${stats.uniqueClients !== 1 ? 's' : ''} único${stats.uniqueClients !== 1 ? 's' : ''}`}
+                    icon="chart"
+                  />
+                </>
+              )}
             </div>
 
             {/* Chart Section */}
