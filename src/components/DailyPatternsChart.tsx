@@ -53,7 +53,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
   // Get available months with services for current year
   const availableMonths = useMemo(() => {
     if (!isCurrentYear || period !== "month") return [];
-    
+
     const months = new Set<number>();
     services.forEach(service => {
       const serviceDate = new Date(service.created_at);
@@ -61,7 +61,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
         months.add(serviceDate.getMonth());
       }
     });
-    
+
     return Array.from(months).sort((a, b) => a - b);
   }, [services, isCurrentYear, period, currentYear]);
 
@@ -173,7 +173,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
     // Tendencia dinámica basada en el período seleccionado
     let trendDays = 30;
     let trendLabel = "Últimos 30 Días";
-    
+
     if (period === "week") {
       trendDays = 7;
       trendLabel = "Últimos 7 Días";
@@ -201,7 +201,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
         date = new Date();
         date.setDate(date.getDate() - (trendDays - 1 - i));
       }
-      
+
       date.setHours(0, 0, 0, 0);
       const compareDate = date.getTime();
 
@@ -291,7 +291,7 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
                     : entry.dataKey}
               :{" "}
               {entry.dataKey.includes("revenue") ||
-              entry.dataKey.includes("Revenue")
+                entry.dataKey.includes("Revenue")
                 ? `$${entry.value.toFixed(2)}`
                 : entry.value}
             </p>
@@ -305,57 +305,63 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
   return (
     <div className="space-y-6">
       {/* Period Filter Controls */}
+      {/* Period Filter Controls */}
       <Card className="p-4 bg-card/50 backdrop-blur-xl border-border/50">
-        <div className="flex flex-wrap gap-4 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Período:</span>
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Período:</span>
             {isCurrentYear && (
-              <div className="flex gap-2">
+              <div className="flex p-1 bg-muted/50 rounded-lg w-full sm:w-auto">
                 <Button
-                  variant={period === "week" ? "default" : "outline"}
+                  variant="ghost"
                   size="sm"
                   onClick={() => setPeriod("week")}
-                  className={period === "week" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+                  className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "week"
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                      : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
-                  Últimos 7 Días
+                  7 Días
                 </Button>
                 <Button
-                  variant={period === "month" ? "default" : "outline"}
+                  variant="ghost"
                   size="sm"
                   onClick={() => setPeriod("month")}
-                  className={period === "month" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+                  className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "month"
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                      : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Mes
                 </Button>
                 <Button
-                  variant={period === "year" ? "default" : "outline"}
+                  variant="ghost"
                   size="sm"
                   onClick={() => setPeriod("year")}
-                  className={period === "year" ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary" : ""}
+                  className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "year"
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                      : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
-                  Año Completo
+                  Año
                 </Button>
               </div>
             )}
             {!isCurrentYear && (
-              <Button
-                variant="default"
-                size="sm"
-                className="bg-gradient-to-r from-cyber-glow to-cyber-secondary cursor-default"
-              >
+              <Badge variant="secondary" className="px-3 py-1">
                 Vista Anual
-              </Button>
+              </Badge>
             )}
           </div>
 
           {/* Month selector - only show when month period is selected and it's current year */}
           {period === "month" && isCurrentYear && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Mes:</span>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <span className="text-sm font-medium text-muted-foreground whitespace-nowrap md:hidden">Mes:</span>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-cyber-glow"
+                className="w-full md:w-48 px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
               >
                 {availableMonths.map(month => (
                   <option key={month} value={month}>
@@ -369,55 +375,63 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       </Card>
 
       {/* Insights Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-green-500/10 to-green-600/10 border-green-500/20">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-green-500" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <Card className="p-3 md:p-4 bg-gradient-to-br from-green-500/10 to-green-600/10 border-green-500/20">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
+            <div className="p-1.5 rounded-full bg-green-500/10">
+              <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Mejor Día</p>
-              <p className="font-bold text-green-600">{insights.bestDay.day}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">Mejor Día</p>
+              <p className="font-bold text-green-600 text-sm md:text-base">{insights.bestDay.day}</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">
                 {insights.bestDay.services} servicios
               </p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-red-500/10 to-red-600/10 border-red-500/20">
-          <div className="flex items-center gap-2">
-            <TrendingDown className="h-5 w-5 text-red-500" />
+        <Card className="p-3 md:p-4 bg-gradient-to-br from-red-500/10 to-red-600/10 border-red-500/20">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
+            <div className="p-1.5 rounded-full bg-red-500/10">
+              <TrendingDown className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Día Más Lento</p>
-              <p className="font-bold text-red-600">{insights.worstDay.day}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">Día Lento</p>
+              <p className="font-bold text-red-600 text-sm md:text-base">{insights.worstDay.day}</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">
                 {insights.worstDay.services} servicios
               </p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 border-blue-500/20">
-          <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-500" />
+        <Card className="p-3 md:p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 border-blue-500/20">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
+            <div className="p-1.5 rounded-full bg-blue-500/10">
+              <Activity className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Promedio Diario</p>
-              <p className="font-bold text-blue-600">
+              <p className="text-xs text-muted-foreground">Promedio</p>
+              <p className="font-bold text-blue-600 text-sm md:text-base">
                 {insights.avgServicesPerDay}
               </p>
-              <p className="text-xs text-muted-foreground">servicios/día</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">serv/día</p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/10 border-purple-500/20">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-purple-500" />
+        <Card className="p-3 md:p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/10 border-purple-500/20">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
+            <div className="p-1.5 rounded-full bg-purple-500/10">
+              <Calendar className="h-4 w-4 md:h-5 md:w-5 text-purple-500" />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Días Ocupados</p>
-              <p className="font-bold text-purple-600">
+              <p className="text-xs text-muted-foreground">Días Top</p>
+              <p className="font-bold text-purple-600 text-sm md:text-base">
                 {insights.busyDaysCount}/7
               </p>
-              <p className="text-xs text-muted-foreground">sobre promedio</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">sobre prom.</p>
             </div>
           </div>
         </Card>
@@ -573,12 +587,12 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
       </div>
 
       {/* Tabla de Resumen por Días */}
-      <Card className="p-6 bg-card/50 backdrop-blur-xl border-border/50">
+      <Card className="p-4 md:p-6 bg-card/50 backdrop-blur-xl border-border/50 overflow-hidden">
         <h3 className="text-lg font-semibold mb-4">
           Resumen Detallado por Días
         </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border/50">
                 <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
@@ -616,10 +630,10 @@ const DailyPatternsChart = ({ services, selectedYear }: DailyPatternsChartProps)
                     {chartData.serviceTypesByDay[index]?.topService || "N/A"}
                     {chartData.serviceTypesByDay[index]?.topServiceCount >
                       0 && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({chartData.serviceTypesByDay[index].topServiceCount})
-                      </span>
-                    )}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({chartData.serviceTypesByDay[index].topServiceCount})
+                        </span>
+                      )}
                   </td>
                   <td className="py-3 px-2 text-center">
                     <Badge
