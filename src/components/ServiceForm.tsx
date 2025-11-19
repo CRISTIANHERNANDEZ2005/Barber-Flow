@@ -478,7 +478,7 @@ const ServiceForm = ({
 
           <div>
             <Label htmlFor="price" className="text-foreground">
-              Precio (USD) *
+              Precio (COP) *
             </Label>
             <Input
               id="price"
