@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  Legend,
 } from "recharts";
 import { Calendar, TrendingUp, TrendingDown, Activity } from "lucide-react";
 import BusinessInsights from "./BusinessInsights";
@@ -45,8 +46,17 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
 
   const currentYear = new Date().getFullYear();
+  const isMultiYear = selectedYears.length > 1;
   // Use the most recent selected year as the primary context for month/trend views
   const primaryYear = selectedYears.length > 0 ? Math.max(...selectedYears) : currentYear;
+
+  // Auto-switch to year view if multi-year is selected OR if single past year is selected and current view is week
+  useEffect(() => {
+    const isPastYear = !isMultiYear && selectedYears.length > 0 && !selectedYears.includes(currentYear);
+    if ((isMultiYear || isPastYear) && period === "week") {
+      setPeriod("year");
+    }
+  }, [isMultiYear, period, selectedYears, currentYear]);
 
   // Get available months with services for selected years
   const availableMonths = useMemo(() => {
@@ -78,8 +88,6 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
 
     if (period === "week") {
       // For week view, we default to the last 7 days relative to TODAY
-      // This is standard behavior. If user wants historical week data, they usually check specific dates.
-      // We filter by selected years to ensure consistency (e.g. if 2023 is selected, don't show today's data)
       const today = new Date();
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -93,7 +101,7 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
   }, [services, period, selectedMonth, selectedYears]);
 
   const chartData = useMemo(() => {
-    // Análisis por día de la semana
+    // Análisis por día de la semana (Aggregated for general stats)
     const dayNames = [
       "Domingo",
       "Lunes",
@@ -164,60 +172,89 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
       };
     });
 
-    // Tendencia dinámica basada en el período seleccionado
+    // Tendencia dinámica
     let trendDays = 30;
-
     if (period === "week") {
       trendDays = 7;
     } else if (period === "month") {
       const daysInMonth = new Date(primaryYear, selectedMonth + 1, 0).getDate();
       trendDays = daysInMonth;
     } else {
-      trendDays = 365;
+      trendDays = 365; // Approximate for year view logic
     }
 
-    const trendData = Array.from({ length: trendDays }, (_, i) => {
-      let date;
-      if (period === "month") {
-        date = new Date(primaryYear, selectedMonth, i + 1);
-      } else if (period === "week") {
-        date = new Date();
-        date.setDate(date.getDate() - (6 - i));
+    // Generate base dates for the X-axis (normalized to a single "timeline")
+    // For multi-year, we use the primary year's dates as the "x-axis" reference
+    const trendData = Array.from({ length: period === 'year' ? 12 : trendDays }, (_, i) => {
+      let dateLabel = "";
+      let sortKey = 0;
+
+      if (period === "year") {
+        // Monthly buckets for Year View
+        const d = new Date(primaryYear, i, 1);
+        dateLabel = d.toLocaleDateString('es-ES', { month: 'short' });
+        sortKey = i;
+      } else if (period === "month") {
+        // Daily buckets for Month View
+        const d = new Date(primaryYear, selectedMonth, i + 1);
+        dateLabel = d.getDate().toString();
+        sortKey = i + 1;
       } else {
-        date = new Date(primaryYear, 0, 1);
-        date.setDate(date.getDate() + i);
+        // Week view (only single year)
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        dateLabel = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+        sortKey = d.getTime();
       }
 
-      date.setHours(0, 0, 0, 0);
+      // Base object with label
+      const dataPoint: any = {
+        name: dateLabel,
+        sortKey,
+      };
 
-      // For trend, we want to see the pattern. 
-      // If multiple years are selected, showing a single line for "Jan 1" that aggregates 2024+2025 might be confusing but it shows the "seasonal pattern".
-      // However, for "Trend", usually we want linear time. 
-      // Since we are constrained to a simple view, we will aggregate by "Day of Year" (or Day of Month) across selected years.
+      // Populate data for each selected year
+      selectedYears.forEach(year => {
+        let yearServices = [];
 
-      const day = date.getDate();
-      const month = date.getMonth();
-
-      const dayServices = filteredServices.filter((service) => {
-        const serviceDate = new Date(service.created_at);
-
-        if (period === "week") {
-          // Exact date match for last 7 days
-          const sDate = new Date(serviceDate);
-          sDate.setHours(0, 0, 0, 0);
-          return sDate.getTime() === date.getTime();
+        if (period === "year") {
+          yearServices = services.filter(s => {
+            const d = new Date(s.created_at);
+            return d.getFullYear() === year && d.getMonth() === i;
+          });
+        } else if (period === "month") {
+          yearServices = services.filter(s => {
+            const d = new Date(s.created_at);
+            return d.getFullYear() === year && d.getMonth() === selectedMonth && d.getDate() === (i + 1);
+          });
         } else {
-          // Match day/month across years
-          return serviceDate.getDate() === day && serviceDate.getMonth() === month;
+          // Week view is single year only, handled below or disabled for multi-year
+          yearServices = services.filter(s => {
+            // Logic for week view matches specific dates, not just "day of week" across years usually
+            // But if we wanted to compare "Last 7 days of 2023 vs 2024" it's complex.
+            // For now, week view is disabled in multi-year.
+            // So this block only runs for single year.
+            const d = new Date(s.created_at);
+            // Re-calculate target date for this index
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() - (6 - i));
+            return d.getFullYear() === year && d.getMonth() === targetDate.getMonth() && d.getDate() === targetDate.getDate();
+          });
         }
+
+        dataPoint[year] = yearServices.length;
+        // Optional: Add revenue per year if needed
+        // dataPoint[`revenue_${year}`] = yearServices.reduce((sum, s) => sum + s.price, 0);
       });
 
-      return {
-        date: date.toISOString().split("T")[0],
-        day: date.getDate(),
-        services: dayServices.length,
-        revenue: dayServices.reduce((sum, service) => sum + service.price, 0),
-      };
+      // For single year legacy support (or if we want a 'total' line), we can keep 'services' key
+      // But for multi-line, we rely on dynamic keys.
+      // Let's add a 'total' for the aggregate view if needed, or just use the first year for single selection.
+      if (!isMultiYear) {
+        dataPoint.services = dataPoint[selectedYears[0]];
+      }
+
+      return dataPoint;
     });
 
     return {
@@ -226,7 +263,7 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
       serviceTypesByDay,
       trendData,
     };
-  }, [filteredServices, period, selectedMonth, selectedYears, primaryYear]);
+  }, [filteredServices, period, selectedMonth, selectedYears, primaryYear, isMultiYear, services]);
 
   const insights = useMemo(() => {
     const { dayStats } = chartData;
@@ -264,6 +301,14 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
     };
   }, [chartData]);
 
+  const CHART_COLORS = [
+    "#8b5cf6", // Violet (Primary)
+    "#00f5ff", // Cyan
+    "#10b981", // Emerald
+    "#f59e0b", // Amber
+    "#ef4444", // Red
+  ];
+
   const CustomTooltip = ({
     active,
     payload,
@@ -274,28 +319,27 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
       color: string;
       dataKey: string;
       value: number;
+      name: string;
     }>;
     label?: string;
   }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg p-3 shadow-lg">
-          <p className="font-medium text-foreground">{label}</p>
+          <p className="font-medium text-foreground mb-2">{label}</p>
           {payload.map((entry, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.dataKey === "services"
-                ? "Servicios"
-                : entry.dataKey === "revenue"
-                  ? "Ingresos"
-                  : entry.dataKey === "avgRevenue"
-                    ? "Promedio"
-                    : entry.dataKey}
-              :{" "}
-              {entry.dataKey.includes("revenue") ||
-                entry.dataKey.includes("Revenue")
-                ? `$${entry.value.toFixed(2)}`
-                : entry.value}
-            </p>
+            <div key={index} className="flex items-center gap-2 text-sm">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-muted-foreground">
+                {entry.dataKey === "services" ? "Servicios" : `Año ${entry.dataKey}`}:
+              </span>
+              <span className="font-bold text-foreground">
+                {entry.value}
+              </span>
+            </div>
           ))}
         </div>
       );
@@ -311,24 +355,26 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Período:</span>
             <div className="flex p-1 bg-muted/50 rounded-lg w-full sm:w-auto">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPeriod("week")}
-                className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "week"
+              {!isMultiYear && selectedYears.includes(currentYear) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPeriod("week")}
+                  className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "week"
                     ? "bg-background text-foreground shadow-sm ring-1 ring-border"
                     : "text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                7 Días
-              </Button>
+                    }`}
+                >
+                  7 Días
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setPeriod("month")}
                 className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "month"
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 Mes
@@ -338,8 +384,8 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
                 size="sm"
                 onClick={() => setPeriod("year")}
                 className={`flex-1 sm:flex-none rounded-md transition-all duration-200 ${period === "year"
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 Año
@@ -547,11 +593,11 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
           </Card>
         )}
 
-        {/* Tendencia Últimos 30 Días */}
+        {/* Tendencia Comparativa */}
         <Card className="p-6 bg-card/50 backdrop-blur-xl border-border/50">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-purple-500" />
-            Tendencia {period === 'week' ? 'Últimos 7 Días' : period === 'month' ? `Días de ${new Date(primaryYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })} ${primaryYear}` : 'Últimos 365 Días'}
+            {isMultiYear ? "Comparativa de Tendencia" : `Tendencia ${period === 'week' ? 'Últimos 7 Días' : period === 'month' ? `Días de ${new Date(primaryYear, selectedMonth).toLocaleDateString('es-ES', { month: 'long' })}` : 'Anual'}`}
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData.trendData}>
@@ -560,20 +606,40 @@ const DailyPatternsChart = ({ services, selectedYears = [] }: DailyPatternsChart
                 stroke="hsl(var(--border))"
               />
               <XAxis
-                dataKey="day"
+                dataKey="name"
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
               />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
               <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="services"
-                stroke="#8b5cf6"
-                strokeWidth={2}
-                dot={{ fill: "#8b5cf6", strokeWidth: 2, r: 3 }}
-                activeDot={{ r: 5, stroke: "#8b5cf6", strokeWidth: 2 }}
-              />
+              <Legend />
+
+              {isMultiYear ? (
+                // Render a line for each selected year
+                selectedYears.map((year, index) => (
+                  <Line
+                    key={year}
+                    type="monotone"
+                    dataKey={year}
+                    name={year.toString()}
+                    stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ fill: CHART_COLORS[index % CHART_COLORS.length], strokeWidth: 2, r: 3 }}
+                    activeDot={{ r: 5, stroke: CHART_COLORS[index % CHART_COLORS.length], strokeWidth: 2 }}
+                  />
+                ))
+              ) : (
+                // Single year line
+                <Line
+                  type="monotone"
+                  dataKey="services"
+                  name="Servicios"
+                  stroke="#8b5cf6"
+                  strokeWidth={2}
+                  dot={{ fill: "#8b5cf6", strokeWidth: 2, r: 3 }}
+                  activeDot={{ r: 5, stroke: "#8b5cf6", strokeWidth: 2 }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </Card>

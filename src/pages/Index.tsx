@@ -21,6 +21,7 @@ import ClientsList from "@/components/ClientsList";
 import ClientStatistics from "@/components/ClientStatistics";
 import { useClients } from "@/context/ClientsContext";
 import ConnectionStatus from "@/components/connection/ConnectionStatus";
+import { YearSelector } from "@/components/YearSelector";
 
 interface Client {
   id: string;
@@ -301,61 +302,27 @@ const Index = () => {
               </TabsTrigger>
             </TabsList>
           </div>
-
           {/* Dashboard/Statistics Tab */}
           <TabsContent value="dashboard" className="space-y-8">
             {/* Year Filter Selector */}
             {availableYears.length > 0 && (
-              <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-muted-foreground">Años:</span>
-                  <div className="flex gap-2 flex-wrap justify-center">
-                    <Button
-                      variant={selectedYears.length === availableYears.length ? "default" : "outline"}
-                      size="sm"
-                      onClick={toggleAllYears}
-                      className={
-                        selectedYears.length === availableYears.length
-                          ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
-                          : ""
-                      }
-                    >
-                      Todos
-                    </Button>
-                    {availableYears.map((year) => (
-                      <Button
-                        key={year}
-                        variant={selectedYears.includes(year) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleYear(year)}
-                        className={
-                          selectedYears.includes(year)
-                            ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
-                            : ""
-                        }
-                      >
-                        {year}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 pl-0 sm:pl-4 sm:border-l border-border/50">
-                  <Button
-                    variant={isCompareMode ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => {
-                      setIsCompareMode(!isCompareMode);
-                      // If turning OFF compare mode, and multiple are selected, switch to the first one (most recent)
-                      if (isCompareMode && selectedYears.length > 1) {
-                        setSelectedYears([selectedYears[0]]);
-                      }
-                    }}
-                    className="text-xs"
-                  >
-                    {isCompareMode ? "Modo Comparación: ON" : "Comparar Años"}
-                  </Button>
-                </div>
+              <div className="flex justify-center mb-6">
+                <YearSelector
+                  selectedYears={selectedYears}
+                  availableYears={availableYears}
+                  onYearChange={toggleYear}
+                  onToggleAll={toggleAllYears}
+                  isCompareMode={isCompareMode}
+                  onCompareModeChange={(checked) => {
+                    setIsCompareMode(checked);
+                    if (checked && selectedYears.length > 1) {
+                      // Keep selection
+                    } else if (!checked && selectedYears.length > 1) {
+                      // Switch to single select (most recent)
+                      setSelectedYears([selectedYears[0]]);
+                    }
+                  }}
+                />
               </div>
             )}
 
@@ -405,55 +372,20 @@ const Index = () => {
 
               {/* Year Filter Selector for Patterns */}
               {availableYears.length > 0 && (
-                <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-6">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Años:</span>
-                    <div className="flex gap-2 flex-wrap justify-center">
-                      <Button
-                        variant={selectedYears.length === availableYears.length ? "default" : "outline"}
-                        size="sm"
-                        onClick={toggleAllYears}
-                        className={
-                          selectedYears.length === availableYears.length
-                            ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
-                            : ""
-                        }
-                      >
-                        Todos
-                      </Button>
-                      {availableYears.map((year) => (
-                        <Button
-                          key={year}
-                          variant={selectedYears.includes(year) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => toggleYear(year)}
-                          className={
-                            selectedYears.includes(year)
-                              ? "bg-gradient-to-r from-cyber-glow to-cyber-secondary"
-                              : ""
-                          }
-                        >
-                          {year}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pl-0 sm:pl-4 sm:border-l border-border/50">
-                    <Button
-                      variant={isCompareMode ? "secondary" : "ghost"}
-                      size="sm"
-                      onClick={() => {
-                        setIsCompareMode(!isCompareMode);
-                        if (isCompareMode && selectedYears.length > 1) {
-                          setSelectedYears([selectedYears[0]]);
-                        }
-                      }}
-                      className="text-xs"
-                    >
-                      {isCompareMode ? "Modo Comparación: ON" : "Comparar Años"}
-                    </Button>
-                  </div>
+                <div className="flex justify-center mb-6">
+                  <YearSelector
+                    selectedYears={selectedYears}
+                    availableYears={availableYears}
+                    onYearChange={toggleYear}
+                    onToggleAll={toggleAllYears}
+                    isCompareMode={isCompareMode}
+                    onCompareModeChange={(checked) => {
+                      setIsCompareMode(checked);
+                      if (!checked && selectedYears.length > 1) {
+                        setSelectedYears([selectedYears[0]]);
+                      }
+                    }}
+                  />
                 </div>
               )}
 
@@ -560,8 +492,8 @@ const Index = () => {
               />
             </div>
           </TabsContent>
-        </Tabs>
-      </div>
+        </Tabs >
+      </div >
 
       <ServiceForm
         open={isServiceFormOpen}
@@ -581,7 +513,7 @@ const Index = () => {
         }}
         client={editingClient}
       />
-    </div>
+    </div >
   );
 };
 
