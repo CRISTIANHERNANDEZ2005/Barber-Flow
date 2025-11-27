@@ -384,7 +384,6 @@ VALUES
 ('3fa85f64-5717-4562-b3fc-2c963f66afa6', 'John', 'Doe', '1234567890', NOW()),
 ('c9b1f9d2-2b2e-4b5a-9d4b-1f4a2f6a7e8c', 'Jane', 'Smith', '0987654321', NOW());
 
-
 -- Añadimos datos a la base de datos
 INSERT INTO public.services (id, client_id, service_type, price, created_at)
 VALUES

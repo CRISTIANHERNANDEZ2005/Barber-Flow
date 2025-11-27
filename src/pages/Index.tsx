@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import MultiYearComparisonChart from "@/components/MultiYearComparisonChart";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
@@ -565,7 +566,11 @@ const Index = () => {
             </div>
 
             {/* Chart Section */}
-            <RevenueChart services={filteredServicesByYear} selectedYears={selectedYears} />
+            {stats.isMultiYearComparison ? (
+              <MultiYearComparisonChart services={filteredServicesByYear} selectedYears={selectedYears} />
+            ) : (
+              <RevenueChart services={filteredServicesByYear} selectedYears={selectedYears} />
+            )}
           </TabsContent>
 
           {/* Daily Patterns Analysis Tab */}
